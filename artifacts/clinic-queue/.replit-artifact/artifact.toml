@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Clinic Queue"
+version = "1.0.0"
+id = "artifacts/clinic-queue"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19449
+
+[services.development]
+run = "pnpm --filter @workspace/clinic-queue run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/clinic-queue", "run", "build" ]
+publicDir = "artifacts/clinic-queue/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19449"
+BASE_PATH = "/"

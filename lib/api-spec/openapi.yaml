@@ -1,0 +1,727 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: Auth
+    description: Browser and mobile authentication endpoints.
+  - name: Clinics
+    description: Clinic setup and management
+  - name: Patients
+    description: Patient queue management
+  - name: Public
+    description: Public, unauthenticated endpoints used by patients
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      tags: [Auth]
+      operationId: getCurrentAuthUser
+      summary: Get the currently authenticated user
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '200':
+          description: Auth status resolved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUserEnvelope'
+  /login:
+    get:
+      tags: [Auth]
+      operationId: beginBrowserLogin
+      summary: Start the browser OIDC login flow
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          description: Relative path to redirect to after login (must start with `/`). Defaults to `/`.
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to the OIDC authorization endpoint.
+  /callback:
+    get:
+      tags: [Auth]
+      operationId: handleBrowserLoginCallback
+      summary: Complete the browser OIDC login flow
+      parameters:
+        - name: code
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: iss
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uri
+      responses:
+        '302':
+          description: Redirect to the `returnTo` path on success (defaults to `/`) or `/api/login` on failure.
+  /logout:
+    get:
+      tags: [Auth]
+      operationId: logoutBrowserSession
+      summary: Clear the session and begin OIDC logout
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+        - $ref: '#/components/parameters/SessionCookie'
+      responses:
+        '302':
+          description: Redirect to the OIDC provider logout URL.
+  /mobile-auth/token-exchange:
+    post:
+      tags: [Auth]
+      operationId: exchangeMobileAuthorizationCode
+      summary: Exchange a mobile OIDC code for a session token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MobileTokenExchangeRequest'
+      responses:
+        '200':
+          description: Session created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileTokenExchangeSuccess'
+        '400':
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '401':
+          description: Token did not contain usable claims.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '500':
+          description: Token exchange failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /mobile-auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logoutMobileSession
+      summary: Delete a mobile session token
+      parameters:
+        - $ref: '#/components/parameters/AuthorizationSessionHeader'
+      responses:
+        '200':
+          description: Logout processed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutSuccess'
+
+  /clinics/me:
+    get:
+      tags: [Clinics]
+      operationId: getMyClinic
+      summary: Get the authenticated user's clinic, if it exists
+      responses:
+        '200':
+          description: Clinic returned (or null if not yet set up).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicEnvelope'
+    patch:
+      tags: [Clinics]
+      operationId: updateMyClinic
+      summary: Update the authenticated user's clinic settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateClinicRequest'
+      responses:
+        '200':
+          description: Updated clinic.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clinic'
+  /clinics:
+    post:
+      tags: [Clinics]
+      operationId: createMyClinic
+      summary: Create the clinic for the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateClinicRequest'
+      responses:
+        '201':
+          description: Clinic created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Clinic'
+  /clinics/me/stats:
+    get:
+      tags: [Clinics]
+      operationId: getMyClinicStats
+      summary: Get summary stats for the authenticated user's clinic
+      responses:
+        '200':
+          description: Stats summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClinicStats'
+  /clinics/me/history:
+    get:
+      tags: [Clinics]
+      operationId: getMyClinicHistory
+      summary: Get today's completed patient history for the authenticated user's clinic
+      responses:
+        '200':
+          description: History list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+
+  /patients:
+    get:
+      tags: [Patients]
+      operationId: listMyQueue
+      summary: List active patients in the authenticated clinic's queue
+      responses:
+        '200':
+          description: Patients waiting or currently being served.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
+    post:
+      tags: [Patients]
+      operationId: addPatientToQueue
+      summary: Add a patient to the queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddPatientRequest'
+      responses:
+        '201':
+          description: Patient added.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+  /patients/next:
+    post:
+      tags: [Patients]
+      operationId: advanceQueue
+      summary: Mark current patient as done and call the next one
+      responses:
+        '200':
+          description: Queue advanced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdvanceQueueResult'
+  /patients/{id}:
+    delete:
+      tags: [Patients]
+      operationId: removePatient
+      summary: Remove a patient from the queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Removed.
+  /patients/{id}/skip:
+    post:
+      tags: [Patients]
+      operationId: skipPatient
+      summary: Mark a patient as skipped
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Skipped.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+
+  /public/clinics/{slug}:
+    get:
+      tags: [Public]
+      operationId: getPublicClinic
+      summary: Get public-facing info for a clinic
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public clinic info.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicClinic'
+        '404':
+          description: Clinic not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /public/clinics/{slug}/join:
+    post:
+      tags: [Public]
+      operationId: publicJoinQueue
+      summary: Public self-registration into a clinic's queue (used after WhatsApp scan)
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicJoinRequest'
+      responses:
+        '201':
+          description: Patient added; returns confirmation payload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicJoinResponse'
+        '404':
+          description: Clinic not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /public/queue/{trackingCode}:
+    get:
+      tags: [Public]
+      operationId: getPublicTracking
+      summary: Get live tracking info for a patient
+      parameters:
+        - name: trackingCode
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tracking info.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicTracking'
+        '404':
+          description: Patient not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+components:
+  parameters:
+    AuthorizationSessionHeader:
+      name: Authorization
+      in: header
+      required: false
+      description: Opaque session token — `Bearer <sid>`.
+      schema:
+        type: string
+    SessionCookie:
+      name: sid
+      in: cookie
+      required: false
+      description: Browser session cookie.
+      schema:
+        type: string
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, 'null']
+          format: email
+        firstName:
+          type: [string, 'null']
+        lastName:
+          type: [string, 'null']
+        profileImageUrl:
+          type: [string, 'null']
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: '#/components/schemas/AuthUser'
+            - type: 'null'
+    MobileTokenExchangeRequest:
+      type: object
+      required: [code, code_verifier, redirect_uri, state]
+      properties:
+        code:
+          type: string
+          minLength: 1
+        code_verifier:
+          type: string
+          minLength: 1
+        redirect_uri:
+          type: string
+          minLength: 1
+          format: uri
+        state:
+          type: string
+          minLength: 1
+        nonce:
+          type: string
+          minLength: 1
+    MobileTokenExchangeSuccess:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+    LogoutSuccess:
+      type: object
+      required: [success]
+      properties:
+        success:
+          type: boolean
+          const: true
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    Clinic:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - doctorName
+        - avgConsultationMinutes
+        - whatsappNumber
+        - createdAt
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        doctorName:
+          type: string
+        avgConsultationMinutes:
+          type: integer
+        whatsappNumber:
+          type: string
+          description: E.164 style phone number, no plus sign required
+        createdAt:
+          type: string
+          format: date-time
+    ClinicEnvelope:
+      type: object
+      required: [clinic]
+      properties:
+        clinic:
+          oneOf:
+            - $ref: '#/components/schemas/Clinic'
+            - type: 'null'
+    CreateClinicRequest:
+      type: object
+      required: [name, doctorName, avgConsultationMinutes, whatsappNumber]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        doctorName:
+          type: string
+          minLength: 1
+        avgConsultationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 120
+        whatsappNumber:
+          type: string
+          minLength: 6
+    UpdateClinicRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        doctorName:
+          type: string
+          minLength: 1
+        avgConsultationMinutes:
+          type: integer
+          minimum: 1
+          maximum: 120
+        whatsappNumber:
+          type: string
+          minLength: 6
+    ClinicStats:
+      type: object
+      required:
+        - totalToday
+        - served
+        - waiting
+        - inProgress
+        - skipped
+        - avgWaitMinutes
+        - currentTokenNumber
+        - nextTokenNumber
+      properties:
+        totalToday:
+          type: integer
+        served:
+          type: integer
+        waiting:
+          type: integer
+        inProgress:
+          type: integer
+        skipped:
+          type: integer
+        avgWaitMinutes:
+          type: integer
+        currentTokenNumber:
+          type: [integer, 'null']
+        nextTokenNumber:
+          type: [integer, 'null']
+
+    Patient:
+      type: object
+      required:
+        - id
+        - clinicId
+        - name
+        - phone
+        - tokenNumber
+        - status
+        - trackingCode
+        - position
+        - estimatedWaitMinutes
+        - reminderStage
+        - createdAt
+      properties:
+        id:
+          type: string
+        clinicId:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        tokenNumber:
+          type: integer
+        status:
+          type: string
+          enum: [waiting, in_progress, done, skipped]
+        trackingCode:
+          type: string
+        position:
+          type: integer
+          description: 0 = currently being served, 1 = next, etc.
+        estimatedWaitMinutes:
+          type: integer
+        reminderStage:
+          type: string
+          enum: [none, three_away, two_away, one_away, your_turn, done]
+        createdAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: [string, 'null']
+          format: date-time
+    AddPatientRequest:
+      type: object
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 4
+    AdvanceQueueResult:
+      type: object
+      required: [completed, current]
+      properties:
+        completed:
+          oneOf:
+            - $ref: '#/components/schemas/Patient'
+            - type: 'null'
+        current:
+          oneOf:
+            - $ref: '#/components/schemas/Patient'
+            - type: 'null'
+
+    PublicClinic:
+      type: object
+      required:
+        - id
+        - slug
+        - name
+        - doctorName
+        - whatsappNumber
+        - avgConsultationMinutes
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        name:
+          type: string
+        doctorName:
+          type: string
+        whatsappNumber:
+          type: string
+        avgConsultationMinutes:
+          type: integer
+    PublicJoinRequest:
+      type: object
+      required: [name, phone]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        phone:
+          type: string
+          minLength: 4
+    PublicJoinResponse:
+      type: object
+      required:
+        - clinicName
+        - doctorName
+        - tokenNumber
+        - estimatedWaitMinutes
+        - position
+        - trackingCode
+        - trackingUrl
+        - whatsappConfirmationMessage
+      properties:
+        clinicName:
+          type: string
+        doctorName:
+          type: string
+        tokenNumber:
+          type: integer
+        estimatedWaitMinutes:
+          type: integer
+        position:
+          type: integer
+        trackingCode:
+          type: string
+        trackingUrl:
+          type: string
+        whatsappConfirmationMessage:
+          type: string
+    PublicTracking:
+      type: object
+      required:
+        - clinicName
+        - doctorName
+        - tokenNumber
+        - status
+        - position
+        - patientsAhead
+        - estimatedWaitMinutes
+        - currentTokenNumber
+        - reminderStage
+        - avgConsultationMinutes
+      properties:
+        clinicName:
+          type: string
+        doctorName:
+          type: string
+        tokenNumber:
+          type: integer
+        status:
+          type: string
+          enum: [waiting, in_progress, done, skipped]
+        position:
+          type: integer
+        patientsAhead:
+          type: integer
+        estimatedWaitMinutes:
+          type: integer
+        currentTokenNumber:
+          type: [integer, 'null']
+        reminderStage:
+          type: string
+          enum: [none, three_away, two_away, one_away, your_turn, done]
+        avgConsultationMinutes:
+          type: integer
