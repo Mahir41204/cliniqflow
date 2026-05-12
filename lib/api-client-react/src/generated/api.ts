@@ -25,6 +25,7 @@ import type {
   ClinicEnvelope,
   ClinicStats,
   CreateClinicRequest,
+  EligibilityCheck,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
@@ -1112,6 +1113,81 @@ export function useListMyQueue<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListMyQueueQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Check if a new appointment is possible today
+ */
+export const getCheckEligibilityUrl = () => {
+  return `/api/patients/eligibility`;
+};
+
+export const checkEligibility = async (
+  options?: RequestInit,
+): Promise<EligibilityCheck> => {
+  return customFetch<EligibilityCheck>(getCheckEligibilityUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getCheckEligibilityQueryKey = () => {
+  return [`/api/patients/eligibility`] as const;
+};
+
+export const getCheckEligibilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkEligibility>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getCheckEligibilityQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof checkEligibility>>> = ({
+    signal,
+  }) => checkEligibility({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckEligibilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkEligibility>>
+>;
+export type CheckEligibilityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check if a new appointment is possible today
+ */
+
+export function useCheckEligibility<
+  TData = Awaited<ReturnType<typeof checkEligibility>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckEligibilityQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

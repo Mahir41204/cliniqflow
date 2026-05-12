@@ -19,6 +19,12 @@ export const clinicsTable = pgTable(
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
+
+    // Shift scheduling fields
+    shiftStartTime: text("shift_start_time").default("09:00"),
+    shiftEndTime: text("shift_end_time").default("17:00"),
+    maxPatientsPerDay: integer("max_patients_per_day").default(50),
+    clinicAddress: text("clinic_address"),
   },
   (table) => [uniqueIndex("clinics_owner_id_unique").on(table.ownerId)],
 );

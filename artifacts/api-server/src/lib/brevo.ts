@@ -1,4 +1,5 @@
 import { logger } from "./logger";
+// @ts-ignore - Ignore missing types for nodemailer
 import nodemailer from "nodemailer";
 
 interface BrevoEmailRequest {
@@ -24,7 +25,7 @@ function buildHtml(otp: string) {
 
 export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
   const apiKey = process.env.BREVO_API_KEY;
-  const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@clinic.local";
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_USER || "noreply@clinic.local";
   const senderName = process.env.BREVO_SENDER_NAME || "Clinic Queue Manager";
 
   const htmlContent = buildHtml(otp);

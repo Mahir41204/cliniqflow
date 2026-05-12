@@ -23,6 +23,10 @@ function serializeClinic(row: typeof clinicsTable.$inferSelect) {
     doctorName: row.doctorName,
     avgConsultationMinutes: row.avgConsultationMinutes,
     whatsappNumber: row.whatsappNumber,
+    shiftStartTime: row.shiftStartTime,
+    shiftEndTime: row.shiftEndTime,
+    maxPatientsPerDay: row.maxPatientsPerDay,
+    clinicAddress: row.clinicAddress,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -62,6 +66,9 @@ router.post("/clinics", async (req, res): Promise<void> => {
       doctorName: parsed.data.doctorName,
       avgConsultationMinutes: parsed.data.avgConsultationMinutes,
       whatsappNumber: parsed.data.whatsappNumber.replace(/[^0-9+]/g, ""),
+      shiftStartTime: parsed.data.shiftStartTime ?? "09:00",
+      shiftEndTime: parsed.data.shiftEndTime ?? "17:00",
+      clinicAddress: parsed.data.clinicAddress,
     })
     .returning();
   res.status(201).json(serializeClinic(created!));
@@ -90,6 +97,14 @@ router.patch("/clinics/me", async (req, res): Promise<void> => {
     update.avgConsultationMinutes = parsed.data.avgConsultationMinutes;
   if (parsed.data.whatsappNumber !== undefined)
     update.whatsappNumber = parsed.data.whatsappNumber.replace(/[^0-9+]/g, "");
+  if (parsed.data.shiftStartTime !== undefined)
+    update.shiftStartTime = parsed.data.shiftStartTime;
+  if (parsed.data.shiftEndTime !== undefined)
+    update.shiftEndTime = parsed.data.shiftEndTime;
+  if (parsed.data.maxPatientsPerDay !== undefined)
+    update.maxPatientsPerDay = parsed.data.maxPatientsPerDay;
+  if (parsed.data.clinicAddress !== undefined)
+    update.clinicAddress = parsed.data.clinicAddress;
 
   const [updated] = await db
     .update(clinicsTable)

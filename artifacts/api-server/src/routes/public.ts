@@ -78,6 +78,10 @@ router.post("/public/clinics/:slug/join", async (req, res): Promise<void> => {
     tokenNumber,
     trackingCode,
     status: "waiting",
+    address: body.data.address,
+    email: body.data.email,
+    age: body.data.age,
+    emergencyContact: body.data.emergencyContact,
   });
   const queue = await buildSerializedQueue(
     clinic.id,
@@ -176,6 +180,10 @@ router.get("/public/queue/:trackingCode", async (req, res): Promise<void> => {
     currentTokenNumber: current?.tokenNumber ?? null,
     reminderStage: stage,
     avgConsultationMinutes: clinic.avgConsultationMinutes,
+    totalToday: queue.length,
+    completedToday: queue.filter(p => p.status === "done").length,
+    clinicWhatsappNumber: clinic.whatsappNumber,
+    clinicAddress: clinic.clinicAddress,
   });
 });
 

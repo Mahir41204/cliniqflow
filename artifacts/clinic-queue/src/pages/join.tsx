@@ -14,6 +14,10 @@ import { useState } from "react";
 const joinSchema = z.object({
   name: z.string().min(2, "Name is required"),
   phone: z.string().min(4, "Phone number is required"),
+  address: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  age: z.coerce.number().min(0).max(120).optional().or(z.literal("")),
+  emergencyContact: z.string().optional(),
 });
 
 function LeafDecor({ className }: { className?: string }) {
@@ -33,7 +37,7 @@ export default function Join() {
 
   const form = useForm<z.infer<typeof joinSchema>>({
     resolver: zodResolver(joinSchema),
-    defaultValues: { name: "", phone: "" },
+    defaultValues: { name: "", phone: "", address: "", email: "", emergencyContact: "" },
   });
 
   if (isLoading) {
@@ -162,14 +166,74 @@ export default function Join() {
           <CardContent className="space-y-5 pb-8 px-6">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Your Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Arjun Singh" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Mobile Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="9876543210" type="tel" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="age"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Age (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="30" type="number" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Email (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="name@example.com" type="email" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="name"
+                  name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-semibold">Your Name</FormLabel>
+                      <FormLabel className="font-semibold">Address (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Arjun Singh" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input placeholder="City, Area" className="h-12 bg-muted/30 rounded-xl" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -178,12 +242,12 @@ export default function Join() {
 
                 <FormField
                   control={form.control}
-                  name="phone"
+                  name="emergencyContact"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-semibold">Mobile Number</FormLabel>
+                      <FormLabel className="font-semibold">Emergency Contact (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="9876543210" type="tel" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input placeholder="Name - Phone" className="h-12 bg-muted/30 rounded-xl" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

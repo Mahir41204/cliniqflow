@@ -1,6 +1,7 @@
+import { eq } from "drizzle-orm";
 import { logger } from "./logger";
-import { buildSerializedQueue } from "../lib/queue";
-import { db, clinicsTable } from "@workspace/db";
+import { buildSerializedQueue, type QueuePatient, type ReminderStage } from "../lib/queue";
+import { db, clinicsTable, patientsTable, type Clinic } from "@workspace/db";
 
 type TwilioContentVariables = Record<string, string | number | boolean | null | undefined>;
 
@@ -115,42 +116,191 @@ export async function sendWhatsAppMessage(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Notification deduplication & tracking
+// ---------------------------------------------------------------------------
+
+export function buildTrackingUrl(trackingCode: string): string {
+  const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+  return `${frontendUrl}/track/${trackingCode}`;
+}
+
+/**
+ * Check if a notification should be sent for a patient at a given stage.
+ * Returns false if:
+ * - Patient has opted out of WhatsApp
+ * - This stage was already sent
+ * - Less than 30 seconds since last notification
+ */
+export async function shouldSendNotification(
+  patientId: string,
+  stage: ReminderStage,
+): Promise<boolean> {
+  const [patient] = await db
+    .select()
+    .from(patientsTable)
+    .where(eq(patientsTable.id, patientId));
+
+  if (!patient) return false;
+  if (patient.whatsappOptIn === false) return false;
+
+  // Check if already sent
+  const sent = patient.notificationsSent ?? [];
+  if (sent.includes(stage)) return false;
+
+  // Check rate limit (30 seconds minimum between messages)
+  if (patient.lastNotificationSent) {
+    const timeSinceLastMs = Date.now() - patient.lastNotificationSent.getTime();
+    if (timeSinceLastMs < 30000) return false;
+  }
+
+  return true;
+}
+
+/**
+ * Record that a notification was sent for a given stage.
+ */
+export async function trackNotificationSent(
+  patientId: string,
+  stage: string,
+): Promise<void> {
+  const [patient] = await db
+    .select()
+    .from(patientsTable)
+    .where(eq(patientsTable.id, patientId));
+
+  if (!patient) return;
+
+  const updatedStages = [...(patient.notificationsSent ?? []), stage];
+
+  await db
+    .update(patientsTable)
+    .set({
+      notificationsSent: updatedStages,
+      lastNotificationSent: new Date(),
+    })
+    .where(eq(patientsTable.id, patientId));
+}
+
+// ---------------------------------------------------------------------------
+// Rich notification message builder
+// ---------------------------------------------------------------------------
+
+export function buildNotificationMessage(
+  clinic: Clinic,
+  patient: QueuePatient,
+): string {
+  const trackingUrl = buildTrackingUrl(patient.trackingCode);
+
+  switch (patient.reminderStage) {
+    case "three_away":
+      return (
+        `📢 Queue Update - ${clinic.name}\n\n` +
+        `Hi ${patient.name},\n` +
+        `You're getting close! 3 patients ahead of you.\n\n` +
+        `🎫 Your Token: #${patient.tokenNumber}\n` +
+        `⏳ Estimated Wait: ~${patient.estimatedWaitMinutes} minutes\n\n` +
+        `Please stay nearby. Track live:\n${trackingUrl}`
+      );
+
+    case "two_away":
+      return (
+        `⚡ Almost Your Turn - ${clinic.name}\n\n` +
+        `${patient.name}, you're 2nd in line!\n\n` +
+        `🎫 Token: #${patient.tokenNumber}\n` +
+        `⏳ Wait: ~${patient.estimatedWaitMinutes} minutes\n\n` +
+        `Please be ready to come in shortly.\n${trackingUrl}`
+      );
+
+    case "one_away":
+      return (
+        `🔔 You're Next! - ${clinic.name}\n\n` +
+        `${patient.name}, you're next in line.\n\n` +
+        `🎫 Token: #${patient.tokenNumber}\n\n` +
+        `⚠️ Please come to the reception NOW.\n` +
+        `The doctor will see you very soon.`
+      );
+
+    case "your_turn":
+      return (
+        `🚨 PLEASE COME NOW - ${clinic.name}\n\n` +
+        `${patient.name}, it's YOUR TURN!\n\n` +
+        `🎫 Token: #${patient.tokenNumber}\n` +
+        `👨‍⚕️ Dr. ${clinic.doctorName} is ready to see you.\n\n` +
+        `➡️ Please proceed to the consultation room immediately.`
+      );
+
+    default:
+      return "";
+  }
+}
+
+/**
+ * Build the enhanced initial confirmation message.
+ */
+export function buildConfirmationMessage(
+  clinic: Clinic,
+  patientName: string,
+  tokenNumber: number,
+  estimatedWaitMinutes: number,
+  patientsAhead: number,
+  trackingCode: string,
+): string {
+  const trackingUrl = buildTrackingUrl(trackingCode);
+  return (
+    `Hello ${patientName} 👋\n` +
+    `Your appointment has been confirmed.\n\n` +
+    `🏥 Clinic: ${clinic.name}\n` +
+    `👨‍⚕️ Dr. ${clinic.doctorName}\n` +
+    `🎫 Token Number: ${tokenNumber}\n` +
+    `⏳ Estimated Wait Time: ${estimatedWaitMinutes} mins\n` +
+    `👥 Patients Ahead: ${patientsAhead}\n\n` +
+    `📍 Live Queue Tracking:\n${trackingUrl}\n\n` +
+    `🔔 We will notify you when:\n` +
+    `• 3 patients are ahead of you\n` +
+    `• 2 patients are ahead of you\n` +
+    `• You're next in line\n` +
+    `• It's your turn - please come immediately\n\n` +
+    `Reply STOP to unsubscribe from notifications.`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Notify nearby patients on queue change (with deduplication)
+// ---------------------------------------------------------------------------
+
 export async function notifyNearbyPatientsOnChange(clinicId: string): Promise<void> {
   try {
     const clinic = await db.query.clinicsTable.findFirst({ where: (c, { eq }) => eq(c.id, clinicId) });
     if (!clinic) return;
     const queue = await buildSerializedQueue(clinicId, clinic.avgConsultationMinutes);
-    // notify positions: three_away, two_away, one_away, and in_progress
+    // notify positions: three_away, two_away, one_away, and your_turn
     const toNotify = queue.filter((p) => ["three_away", "two_away", "one_away", "your_turn"].includes(p.reminderStage));
     await Promise.all(
       toNotify.map(async (p) => {
         if (!p.phone) return;
-        let text = "";
-        switch (p.reminderStage) {
-          case "three_away":
-            text = `${clinic.name}\nDr. ${clinic.doctorName}\nYou're 3 away from your turn. Estimated wait: ${p.estimatedWaitMinutes} min. Token: #${p.tokenNumber}`;
-            break;
-          case "two_away":
-            text = `${clinic.name}\nDr. ${clinic.doctorName}\nYou're 2 away. Estimated wait: ${p.estimatedWaitMinutes} min. Token: #${p.tokenNumber}`;
-            break;
-          case "one_away":
-            text = `${clinic.name}\nDr. ${clinic.doctorName}\nYou're next soon. Please be ready. Token: #${p.tokenNumber}`;
-            break;
-          case "your_turn":
-            text = `${clinic.name}\nDr. ${clinic.doctorName}\nIt's your turn now. Please proceed to the reception. Token: #${p.tokenNumber}`;
-            break;
-        }
-        if (text) {
-          await sendWhatsAppMessage(p.phone, text, {
-            contentVariables: {
-              clinicName: clinic.name,
-              doctorName: clinic.doctorName,
-              tokenNumber: p.tokenNumber,
-              estimatedWaitMinutes: p.estimatedWaitMinutes,
-              reminderStage: p.reminderStage,
-              message: text,
-            },
-          }).catch(() => undefined);
+
+        // Deduplication: check if we should send this notification
+        const canSend = await shouldSendNotification(p.id, p.reminderStage);
+        if (!canSend) return;
+
+        const text = buildNotificationMessage(clinic, p);
+        if (!text) return;
+
+        const success = await sendWhatsAppMessage(p.phone, text, {
+          contentVariables: {
+            clinicName: clinic.name,
+            doctorName: clinic.doctorName,
+            tokenNumber: p.tokenNumber,
+            estimatedWaitMinutes: p.estimatedWaitMinutes,
+            reminderStage: p.reminderStage,
+            message: text,
+          },
+        }).catch(() => false);
+
+        // Track the notification regardless of success to avoid spamming
+        if (success) {
+          await trackNotificationSent(p.id, p.reminderStage);
         }
       }),
     );

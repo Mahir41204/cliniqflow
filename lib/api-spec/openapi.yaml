@@ -254,6 +254,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Patient'
+  /patients/eligibility:
+    get:
+      tags: [Patients]
+      operationId: checkEligibility
+      summary: Check if a new appointment is possible today
+      responses:
+        '200':
+          description: Eligibility check result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EligibilityCheck'
   /patients/next:
     post:
       tags: [Patients]
@@ -377,6 +389,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /public/whatsapp/webhook:
+    post:
+      tags: [Public]
+      operationId: whatsappWebhook
+      summary: Receive incoming WhatsApp messages for opt-in/out
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook acknowledged.
 
 components:
   parameters:
@@ -492,6 +521,16 @@ components:
         createdAt:
           type: string
           format: date-time
+        shiftStartTime:
+          type: string
+          description: "HH:MM format, e.g. 09:00"
+        shiftEndTime:
+          type: string
+          description: "HH:MM format, e.g. 17:00"
+        maxPatientsPerDay:
+          type: integer
+        clinicAddress:
+          type: [string, 'null']
     ClinicEnvelope:
       type: object
       required: [clinic]
@@ -517,6 +556,12 @@ components:
         whatsappNumber:
           type: string
           minLength: 6
+        shiftStartTime:
+          type: string
+        shiftEndTime:
+          type: string
+        clinicAddress:
+          type: string
     UpdateClinicRequest:
       type: object
       properties:
@@ -533,6 +578,15 @@ components:
         whatsappNumber:
           type: string
           minLength: 6
+        shiftStartTime:
+          type: string
+        shiftEndTime:
+          type: string
+        maxPatientsPerDay:
+          type: integer
+          minimum: 1
+        clinicAddress:
+          type: string
     ClinicStats:
       type: object
       required:
@@ -616,6 +670,17 @@ components:
         phone:
           type: string
           minLength: 4
+        address:
+          type: string
+        email:
+          type: string
+          format: email
+        age:
+          type: integer
+          minimum: 0
+          maximum: 120
+        emergencyContact:
+          type: string
     AdvanceQueueResult:
       type: object
       required: [completed, current]
@@ -725,3 +790,35 @@ components:
           enum: [none, three_away, two_away, one_away, your_turn, done]
         avgConsultationMinutes:
           type: integer
+        totalToday:
+          type: integer
+        completedToday:
+          type: integer
+        clinicWhatsappNumber:
+          type: [string, 'null']
+        clinicAddress:
+          type: [string, 'null']
+    EligibilityCheck:
+      type: object
+      required:
+        - canGetAppointment
+        - currentQueueLength
+        - estimatedWaitMinutes
+        - shiftEndTime
+        - timeUntilShiftEnd
+      properties:
+        canGetAppointment:
+          type: boolean
+        currentQueueLength:
+          type: integer
+        estimatedWaitMinutes:
+          type: integer
+        shiftEndTime:
+          type: string
+        shiftStartTime:
+          type: string
+        timeUntilShiftEnd:
+          type: integer
+          description: Minutes until doctor shift ends
+        reason:
+          type: [string, 'null']

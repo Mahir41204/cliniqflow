@@ -1,4 +1,4 @@
-import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey } from "@workspace/api-client-react";
+import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, useCheckEligibility, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey } from "@workspace/api-client-react";
 import type { Patient } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/auth-web";
 import { Redirect, Link } from "wouter";
@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { QRCodeCanvas } from "qrcode.react";
-import { Copy, Plus, MoreVertical, SkipForward, Trash2, ArrowRight, Activity, Users, Clock, CheckCircle2, UserPlus, QrCode, History } from "lucide-react";
+import { Copy, Plus, MoreVertical, SkipForward, Trash2, ArrowRight, Activity, Users, Clock, CheckCircle2, UserPlus, QrCode, History, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,10 @@ import { useState, useRef } from "react";
 const addPatientSchema = z.object({
   name: z.string().min(2, "Name required"),
   phone: z.string().min(4, "Phone required"),
+  address: z.string().optional(),
+  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  age: z.coerce.number().min(0).max(120).optional().or(z.literal("")),
+  emergencyContact: z.string().optional(),
 });
 
 function maskPhone(phone: string): string {
@@ -39,6 +43,10 @@ export default function Dashboard() {
     query: { enabled: isAuthenticated, queryKey: getGetMyClinicQueryKey() } 
   });
   const clinic = clinicData?.clinic;
+
+  const { data: eligibility } = useCheckEligibility({
+    query: { enabled: !!clinic, refetchInterval: 10000 }
+  });
 
   const statsQuery = useGetMyClinicStats({ 
     query: { enabled: !!clinic, refetchInterval: 3000, queryKey: getGetMyClinicStatsQueryKey() } 
@@ -64,7 +72,7 @@ export default function Dashboard() {
 
   const form = useForm<z.infer<typeof addPatientSchema>>({
     resolver: zodResolver(addPatientSchema),
-    defaultValues: { name: "", phone: "" },
+    defaultValues: { name: "", phone: "", address: "", email: "", emergencyContact: "" },
   });
 
   const invalidateData = () => {
@@ -172,32 +180,101 @@ export default function Dashboard() {
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
+                  {eligibility && !eligibility.canGetAppointment && (
+                    <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-xl flex items-start gap-2 mb-4">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold">Queue Full / Doctor Unavailable</p>
+                        <p>{eligibility.reason || "Appointments are no longer available for today."}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Patient Name *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="John Doe" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>WhatsApp Number *</FormLabel>
+                          <FormControl>
+                            <Input placeholder="9876543210" type="tel" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="age"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Age</FormLabel>
+                          <FormControl>
+                            <Input placeholder="30" type="number" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email Address</FormLabel>
+                          <FormControl>
+                            <Input placeholder="john@example.com" type="email" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Patient Name</FormLabel>
+                        <FormLabel>Home Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="John Doe" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          <Input placeholder="123 Main St, City" className="h-11 rounded-xl bg-muted/30" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={form.control}
-                    name="phone"
+                    name="emergencyContact"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mobile Number</FormLabel>
+                        <FormLabel>Emergency Contact</FormLabel>
                         <FormControl>
-                          <Input placeholder="9876543210" type="tel" className="h-11 rounded-xl bg-muted/30" {...field} />
+                          <Input placeholder="Name - Phone" className="h-11 rounded-xl bg-muted/30" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <DialogFooter className="pt-4">
                     <DialogClose asChild>
                       <Button type="button" variant="ghost" className="rounded-xl">Cancel</Button>

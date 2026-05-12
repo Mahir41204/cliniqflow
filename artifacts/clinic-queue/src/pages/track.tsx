@@ -1,7 +1,9 @@
 import { useGetPublicTracking } from "@workspace/api-client-react";
 import { useParams } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, Users, Activity, CheckCircle2, XCircle, Heart, SkipForward, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Clock, Users, Activity, CheckCircle2, XCircle, Heart, SkipForward, Sparkles, RefreshCw, Phone, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 
 function StatusBadge({ status }: { status: string }) {
@@ -49,7 +51,7 @@ function PulsingDot({ isActive }: { isActive: boolean }) {
 
 export default function Track() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
-  const { data: tracking, isLoading, error } = useGetPublicTracking(
+  const { data: tracking, isLoading, error, refetch, isFetching } = useGetPublicTracking(
     trackingCode!, 
     { query: { enabled: !!trackingCode, refetchInterval: 5000 } }
   );
@@ -140,12 +142,13 @@ export default function Track() {
 
             {/* Your turn callout */}
             {isYourTurn && !isDone && (
-              <div className="rounded-2xl border border-primary/20 bg-primary/[0.06] p-5 text-center space-y-1.5">
+              <div className="rounded-2xl border-2 border-primary bg-primary/[0.08] p-6 text-center space-y-3 shadow-lg shadow-primary/20 animate-pulse-soft">
                 <div className="flex justify-center mb-2">
-                  <Sparkles className="h-6 w-6 text-primary animate-pulse" />
+                  <Sparkles className="h-8 w-8 text-primary animate-bounce" />
                 </div>
-                <p className="text-lg font-heading font-bold text-primary">It's your turn!</p>
-                <p className="text-sm text-muted-foreground">Please head to the doctor's room now.</p>
+                <p className="text-2xl font-heading font-bold text-primary tracking-tight">URGENT: IT'S YOUR TURN!</p>
+                <p className="text-base text-foreground font-medium">Dr. {tracking.doctorName} is ready to see you.</p>
+                <p className="text-sm text-muted-foreground">Please head to the consultation room immediately.</p>
               </div>
             )}
 
@@ -167,34 +170,66 @@ export default function Track() {
 
             {/* Queue info */}
             {isWaiting && (
-              <div className="grid grid-cols-3 gap-3">
-                <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Position</p>
-                  <p className="text-2xl font-bold text-foreground font-heading">{tracking.position}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Position</p>
+                    <p className="text-2xl font-bold text-foreground font-heading">{tracking.position}</p>
+                  </div>
+                  <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Ahead</p>
+                    <p className="text-2xl font-bold text-foreground font-heading">{tracking.patientsAhead}</p>
+                  </div>
+                  <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
+                    <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">~Wait</p>
+                    <p className="text-2xl font-bold text-foreground font-heading">{tracking.estimatedWaitMinutes}<span className="text-lg font-normal text-muted-foreground">m</span></p>
+                  </div>
                 </div>
-                <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">Ahead</p>
-                  <p className="text-2xl font-bold text-foreground font-heading">{tracking.patientsAhead}</p>
-                </div>
-                <div className="p-4 bg-muted/40 rounded-2xl text-center border border-border/50">
-                  <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1">~Wait</p>
-                  <p className="text-2xl font-bold text-foreground font-heading">{tracking.estimatedWaitMinutes}<span className="text-lg font-normal text-muted-foreground">m</span></p>
-                </div>
+
+                {/* Progress bar */}
+                {(tracking.totalToday ?? 0) > 0 && tracking.currentTokenNumber != null && (
+                  <div className="space-y-2 pt-2">
+                    <div className="flex justify-between text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      <span>Serving: #{tracking.currentTokenNumber}</span>
+                      <span>Your Turn: #{tracking.tokenNumber}</span>
+                    </div>
+                    <Progress value={Math.min(100, Math.max(0, ((tracking.currentTokenNumber / tracking.tokenNumber) * 100)))} className="h-2" />
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Currently serving indicator */}
-            {isWaiting && tracking.currentTokenNumber != null && (
-              <div className="text-center text-sm text-muted-foreground bg-muted/30 rounded-xl p-3 border border-border/50">
-                Currently serving token <strong className="text-foreground tabular-nums">#{tracking.currentTokenNumber}</strong>
+            {/* Actions & Auto-refresh notice */}
+            <div className="pt-4 border-t border-border/50 space-y-4">
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1 rounded-xl shadow-sm h-11" onClick={() => refetch()} disabled={isFetching}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+                  {isFetching ? 'Updating...' : 'Refresh'}
+                </Button>
+                {tracking.clinicWhatsappNumber && (
+                  <Button variant="outline" className="flex-1 rounded-xl shadow-sm h-11" asChild>
+                    <a href={`tel:${tracking.clinicWhatsappNumber.replace(/\D/g, '')}`}>
+                      <Phone className="mr-2 h-4 w-4 text-primary" />
+                      Contact Clinic
+                    </a>
+                  </Button>
+                )}
               </div>
-            )}
+              
+              {(isWaiting || isYourTurn) && (
+                <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/80">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                  Live updating every 5s
+                </div>
+              )}
+            </div>
 
-            {/* Auto-refresh notice */}
-            {(isWaiting || isYourTurn) && (
-              <p className="text-center text-xs text-muted-foreground/60">
-                This page updates automatically every 5 seconds.
-              </p>
+            {/* Clinic Info Footer */}
+            {tracking.clinicAddress && (
+              <div className="mt-6 p-4 bg-muted/30 rounded-2xl border border-border/50 flex gap-3 text-sm">
+                <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <p className="text-muted-foreground">{tracking.clinicAddress}</p>
+              </div>
             )}
           </CardContent>
         </Card>

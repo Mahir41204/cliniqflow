@@ -15,9 +15,34 @@ import {
   nextTokenNumber,
   serialize,
 } from "../lib/queue";
-import { sendWhatsAppMessage, notifyNearbyPatientsOnChange } from "../lib/notifications";
+import {
+  sendWhatsAppMessage,
+  notifyNearbyPatientsOnChange,
+  buildConfirmationMessage,
+  trackNotificationSent,
+  buildNotificationMessage,
+} from "../lib/notifications";
+import { checkAppointmentEligibility } from "../lib/eligibility";
 
 const router: IRouter = Router();
+
+router.get("/patients/eligibility", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const clinic = await loadClinicByOwner(req.user.id);
+  if (!clinic) {
+    res.status(404).json({ error: "Clinic not found" });
+    return;
+  }
+  try {
+    const result = await checkAppointmentEligibility(clinic.id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "Eligibility check failed" });
+  }
+});
 
 router.get("/patients", async (req, res): Promise<void> => {
   if (!req.isAuthenticated()) {
@@ -62,6 +87,10 @@ router.post("/patients", async (req, res): Promise<void> => {
       tokenNumber,
       trackingCode: generateTrackingCode(),
       status: "waiting",
+      address: parsed.data.address,
+      email: parsed.data.email,
+      age: parsed.data.age,
+      emergencyContact: parsed.data.emergencyContact,
     })
     .returning();
   const queue = await buildSerializedQueue(
@@ -69,19 +98,32 @@ router.post("/patients", async (req, res): Promise<void> => {
     clinic.avgConsultationMinutes,
   );
   const fresh = queue.find((p) => p.id === row!.id);
+  const position = fresh?.position ?? queue.length - 1;
+  const estimatedWaitMinutes = fresh?.estimatedWaitMinutes ?? position * clinic.avgConsultationMinutes;
+  
+  const msg = buildConfirmationMessage(
+    clinic,
+    parsed.data.name,
+    tokenNumber,
+    estimatedWaitMinutes,
+    position,
+    row!.trackingCode
+  );
+
   // confirmation to manually added patient
-  void sendWhatsAppMessage(
-    parsed.data.phone,
-    `${clinic.name}\nDr. ${clinic.doctorName}\nYou were added to the queue. Token: #${tokenNumber}`,
-    {
-      contentVariables: {
-        clinicName: clinic.name,
-        doctorName: clinic.doctorName,
-        tokenNumber,
-        message: `You were added to the queue. Token: #${tokenNumber}`,
-      },
+  void sendWhatsAppMessage(parsed.data.phone, msg, {
+    contentVariables: {
+      clinicName: clinic.name,
+      doctorName: clinic.doctorName,
+      tokenNumber,
+      estimatedWaitMinutes,
+      message: msg,
     },
-  ).catch(() => undefined);
+  })
+    .then((success) => {
+      if (success) void trackNotificationSent(row!.id, "confirmation");
+    })
+    .catch(() => undefined);
   // notify nearby patients asynchronously
   void notifyNearbyPatientsOnChange(clinic.id);
   res.status(201).json(fresh ?? serialize(row!, 0, clinic.avgConsultationMinutes));
@@ -126,18 +168,21 @@ router.post("/patients/next", async (req, res): Promise<void> => {
 
   // notify the new current patient directly (your turn)
   if (currentRow?.phone) {
-    void sendWhatsAppMessage(
-      currentRow.phone,
-      `${clinic.name}\nDr. ${clinic.doctorName}\nIt's your turn now. Token: #${currentRow.tokenNumber}`,
-      {
+    const queueForCurrent = await buildSerializedQueue(clinic.id, clinic.avgConsultationMinutes);
+    const pCurrent = queueForCurrent.find(p => p.id === currentRow!.id);
+    if (pCurrent) {
+      const msg = buildNotificationMessage(clinic, pCurrent);
+      void sendWhatsAppMessage(currentRow.phone, msg, {
         contentVariables: {
           clinicName: clinic.name,
           doctorName: clinic.doctorName,
           tokenNumber: currentRow.tokenNumber,
-          message: `It's your turn now. Token: #${currentRow.tokenNumber}`,
+          message: msg,
         },
-      },
-    ).catch(() => undefined);
+      }).then((success) => {
+        if (success) void trackNotificationSent(currentRow!.id, "your_turn");
+      }).catch(() => undefined);
+    }
   }
 
   res.json({

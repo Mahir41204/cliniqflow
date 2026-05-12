@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   integer,
+  boolean,
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
@@ -24,6 +25,22 @@ export const patientsTable = pgTable(
       .notNull()
       .defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+
+    // Extended patient fields
+    address: text("address"),
+    email: text("email"),
+    age: integer("age"),
+    emergencyContact: text("emergency_contact"),
+
+    // WhatsApp notification tracking
+    whatsappOptIn: boolean("whatsapp_opt_in").default(true),
+    lastNotificationSent: timestamp("last_notification_sent", {
+      withTimezone: true,
+    }),
+    notificationsSent: text("notifications_sent")
+      .array()
+      .default([])
+      .notNull(),
   },
   (table) => [
     index("patients_clinic_id_idx").on(table.clinicId),

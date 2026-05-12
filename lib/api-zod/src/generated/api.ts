@@ -139,6 +139,10 @@ export const UpdateMyClinicBody = zod.object({
     .string()
     .min(updateMyClinicBodyWhatsappNumberMin)
     .optional(),
+  shiftStartTime: zod.string().optional(),
+  shiftEndTime: zod.string().optional(),
+  maxPatientsPerDay: zod.number().min(1).optional(),
+  clinicAddress: zod.string().optional(),
 });
 
 export const UpdateMyClinicResponse = zod.object({
@@ -169,6 +173,9 @@ export const CreateMyClinicBody = zod.object({
     .min(1)
     .max(createMyClinicBodyAvgConsultationMinutesMax),
   whatsappNumber: zod.string().min(createMyClinicBodyWhatsappNumberMin),
+  shiftStartTime: zod.string().optional(),
+  shiftEndTime: zod.string().optional(),
+  clinicAddress: zod.string().optional(),
 });
 
 /**
@@ -248,6 +255,10 @@ export const addPatientToQueueBodyPhoneMin = 4;
 export const AddPatientToQueueBody = zod.object({
   name: zod.string().min(1),
   phone: zod.string().min(addPatientToQueueBodyPhoneMin),
+  address: zod.string().optional(),
+  email: zod.string().email().optional(),
+  age: zod.number().min(0).max(120).optional(),
+  emergencyContact: zod.string().optional(),
 });
 
 /**
@@ -372,6 +383,10 @@ export const publicJoinQueueBodyPhoneMin = 4;
 export const PublicJoinQueueBody = zod.object({
   name: zod.string().min(1),
   phone: zod.string().min(publicJoinQueueBodyPhoneMin),
+  address: zod.string().optional(),
+  email: zod.string().email().optional(),
+  age: zod.number().min(0).max(120).optional(),
+  emergencyContact: zod.string().optional(),
 });
 
 /**

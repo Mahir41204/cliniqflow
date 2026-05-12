@@ -60,6 +60,13 @@ export interface Clinic {
   /** E.164 style phone number, no plus sign required */
   whatsappNumber: string;
   createdAt: string;
+  /** HH:MM format, e.g. 09:00 */
+  shiftStartTime?: string;
+  /** HH:MM format, e.g. 17:00 */
+  shiftEndTime?: string;
+  maxPatientsPerDay?: number;
+  /** @nullable */
+  clinicAddress?: string | null;
 }
 
 export interface ClinicEnvelope {
@@ -78,6 +85,9 @@ export interface CreateClinicRequest {
   avgConsultationMinutes: number;
   /** @minLength 6 */
   whatsappNumber: string;
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  clinicAddress?: string;
 }
 
 export interface UpdateClinicRequest {
@@ -92,6 +102,11 @@ export interface UpdateClinicRequest {
   avgConsultationMinutes?: number;
   /** @minLength 6 */
   whatsappNumber?: string;
+  shiftStartTime?: string;
+  shiftEndTime?: string;
+  /** @minimum 1 */
+  maxPatientsPerDay?: number;
+  clinicAddress?: string;
 }
 
 export interface ClinicStats {
@@ -150,6 +165,14 @@ export interface AddPatientRequest {
   name: string;
   /** @minLength 4 */
   phone: string;
+  address?: string;
+  email?: string;
+  /**
+   * @minimum 0
+   * @maximum 120
+   */
+  age?: number;
+  emergencyContact?: string;
 }
 
 export interface AdvanceQueueResult {
@@ -218,6 +241,24 @@ export interface PublicTracking {
   currentTokenNumber: number | null;
   reminderStage: PublicTrackingReminderStage;
   avgConsultationMinutes: number;
+  totalToday?: number;
+  completedToday?: number;
+  /** @nullable */
+  clinicWhatsappNumber?: string | null;
+  /** @nullable */
+  clinicAddress?: string | null;
+}
+
+export interface EligibilityCheck {
+  canGetAppointment: boolean;
+  currentQueueLength: number;
+  estimatedWaitMinutes: number;
+  shiftEndTime: string;
+  shiftStartTime?: string;
+  /** Minutes until doctor shift ends */
+  timeUntilShiftEnd: number;
+  /** @nullable */
+  reason?: string | null;
 }
 
 /**

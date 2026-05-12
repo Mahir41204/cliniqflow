@@ -19,6 +19,10 @@ const updateSchema = z.object({
   avgConsultationMinutes: z.coerce.number().min(1).max(120),
   whatsappNumber: z.string().min(10, "Enter valid WhatsApp number with country code")
     .regex(/^\d+$/, "Digits only — no +, spaces or hyphens"),
+  shiftStartTime: z.string().optional(),
+  shiftEndTime: z.string().optional(),
+  maxPatientsPerDay: z.coerce.number().min(1).optional(),
+  clinicAddress: z.string().optional(),
 });
 
 export default function Settings() {
@@ -41,6 +45,10 @@ export default function Settings() {
       doctorName: "",
       avgConsultationMinutes: 15,
       whatsappNumber: "",
+      shiftStartTime: "09:00",
+      shiftEndTime: "17:00",
+      maxPatientsPerDay: 50,
+      clinicAddress: "",
     },
   });
 
@@ -51,6 +59,10 @@ export default function Settings() {
         doctorName: clinic.doctorName,
         avgConsultationMinutes: clinic.avgConsultationMinutes,
         whatsappNumber: clinic.whatsappNumber,
+        shiftStartTime: clinic.shiftStartTime ?? "09:00",
+        shiftEndTime: clinic.shiftEndTime ?? "17:00",
+        maxPatientsPerDay: clinic.maxPatientsPerDay ?? 50,
+        clinicAddress: clinic.clinicAddress ?? "",
       });
     }
   }, [clinic, form]);
@@ -164,6 +176,73 @@ export default function Settings() {
                         </div>
                       </FormControl>
                       <FormDescription>Affects estimated wait times</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="shiftStartTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary/60" /> Shift Start Time
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="time" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="shiftEndTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-primary/60" /> Shift End Time
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="time" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      </FormControl>
+                      <FormDescription>Used for eligibility checks</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="maxPatientsPerDay"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold flex items-center gap-2">
+                        <User className="w-4 h-4 text-primary/60" /> Max Patients / Day
+                      </FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="clinicAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold flex items-center gap-2">
+                        Clinic Address
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Full Address" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
