@@ -26,6 +26,9 @@ import { sendOtpEmail } from "../lib/brevo";
 const router: IRouter = Router();
 const GOOGLE_STATE_COOKIE = "google_oauth_state";
 const GOOGLE_RETURN_TO_COOKIE = "google_oauth_return_to";
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_PATTERN = /^[A-Za-z][A-Za-z\s.'-]{0,79}$/;
+const OTP_PATTERN = /^\d{6}$/;
 
 router.use("/register", authRateLimiter);
 router.use("/login", authRateLimiter);
@@ -433,12 +436,26 @@ function validateCredentials(
     return { success: false, error: "Email and password are required" };
   }
 
+  if (!EMAIL_PATTERN.test(email)) {
+    return { success: false, error: "Invalid email format" };
+  }
+
+  if (password.length < 8 || password.length > 64) {
+    return { success: false, error: "Password must be 8-64 characters" };
+  }
+
   if (includeName) {
     const firstName = candidate.firstName?.trim();
     if (!firstName) {
       return { success: false, error: "First name is required" };
     }
+    if (!NAME_PATTERN.test(firstName)) {
+      return { success: false, error: "First name contains invalid characters" };
+    }
     const lastName = candidate.lastName?.trim();
+    if (lastName && !NAME_PATTERN.test(lastName)) {
+      return { success: false, error: "Last name contains invalid characters" };
+    }
     return {
       success: true,
       data: {
@@ -464,6 +481,10 @@ router.post("/send-otp", authRateLimiter, async (req: Request, res: Response) =>
 
   if (!email) {
     res.status(400).json({ error: "Email is required" });
+    return;
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    res.status(400).json({ error: "Invalid email format" });
     return;
   }
 
@@ -492,6 +513,14 @@ router.post("/verify-otp", authRateLimiter, async (req: Request, res: Response) 
 
   if (!email || !otp) {
     res.status(400).json({ error: "Email and OTP are required" });
+    return;
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    res.status(400).json({ error: "Invalid email format" });
+    return;
+  }
+  if (!OTP_PATTERN.test(otp)) {
+    res.status(400).json({ error: "OTP must be 6 digits" });
     return;
   }
 

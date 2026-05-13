@@ -114,6 +114,16 @@ export const GetMyClinicResponse = zod.object({
         .string()
         .describe("E.164 style phone number, no plus sign required"),
       createdAt: zod.coerce.date(),
+      shiftStartTime: zod
+        .string()
+        .optional()
+        .describe("HH:MM format, e.g. 09:00"),
+      shiftEndTime: zod
+        .string()
+        .optional()
+        .describe("HH:MM format, e.g. 17:00"),
+      maxPatientsPerDay: zod.number().optional(),
+      clinicAddress: zod.string().nullish(),
     }),
     zod.null(),
   ]),
@@ -122,14 +132,50 @@ export const GetMyClinicResponse = zod.object({
 /**
  * @summary Update the authenticated user's clinic settings
  */
+export const updateMyClinicBodyNameMin = 2;
+export const updateMyClinicBodyNameMax = 80;
 
+export const updateMyClinicBodyNameRegExp = new RegExp(
+  "^[A-Za-z0-9][A-Za-z0-9\\s.'&-]{1,79}$",
+);
+export const updateMyClinicBodyDoctorNameMin = 2;
+export const updateMyClinicBodyDoctorNameMax = 80;
+
+export const updateMyClinicBodyDoctorNameRegExp = new RegExp(
+  "^[A-Za-z][A-Za-z\\s.'-]{1,79}$",
+);
 export const updateMyClinicBodyAvgConsultationMinutesMax = 120;
 
-export const updateMyClinicBodyWhatsappNumberMin = 6;
+export const updateMyClinicBodyWhatsappNumberMin = 10;
+export const updateMyClinicBodyWhatsappNumberMax = 15;
+
+export const updateMyClinicBodyWhatsappNumberRegExp = new RegExp(
+  "^[0-9]{10,15}$",
+);
+export const updateMyClinicBodyShiftStartTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const updateMyClinicBodyShiftEndTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const updateMyClinicBodyMaxPatientsPerDayMax = 500;
+
+export const updateMyClinicBodyClinicAddressMin = 5;
+export const updateMyClinicBodyClinicAddressMax = 200;
 
 export const UpdateMyClinicBody = zod.object({
-  name: zod.string().min(1).optional(),
-  doctorName: zod.string().min(1).optional(),
+  name: zod
+    .string()
+    .min(updateMyClinicBodyNameMin)
+    .max(updateMyClinicBodyNameMax)
+    .regex(updateMyClinicBodyNameRegExp)
+    .optional(),
+  doctorName: zod
+    .string()
+    .min(updateMyClinicBodyDoctorNameMin)
+    .max(updateMyClinicBodyDoctorNameMax)
+    .regex(updateMyClinicBodyDoctorNameRegExp)
+    .optional(),
   avgConsultationMinutes: zod
     .number()
     .min(1)
@@ -138,11 +184,27 @@ export const UpdateMyClinicBody = zod.object({
   whatsappNumber: zod
     .string()
     .min(updateMyClinicBodyWhatsappNumberMin)
+    .max(updateMyClinicBodyWhatsappNumberMax)
+    .regex(updateMyClinicBodyWhatsappNumberRegExp)
     .optional(),
-  shiftStartTime: zod.string().optional(),
-  shiftEndTime: zod.string().optional(),
-  maxPatientsPerDay: zod.number().min(1).optional(),
-  clinicAddress: zod.string().optional(),
+  shiftStartTime: zod
+    .string()
+    .regex(updateMyClinicBodyShiftStartTimeRegExp)
+    .optional(),
+  shiftEndTime: zod
+    .string()
+    .regex(updateMyClinicBodyShiftEndTimeRegExp)
+    .optional(),
+  maxPatientsPerDay: zod
+    .number()
+    .min(1)
+    .max(updateMyClinicBodyMaxPatientsPerDayMax)
+    .optional(),
+  clinicAddress: zod
+    .string()
+    .min(updateMyClinicBodyClinicAddressMin)
+    .max(updateMyClinicBodyClinicAddressMax)
+    .optional(),
 });
 
 export const UpdateMyClinicResponse = zod.object({
@@ -155,27 +217,77 @@ export const UpdateMyClinicResponse = zod.object({
     .string()
     .describe("E.164 style phone number, no plus sign required"),
   createdAt: zod.coerce.date(),
+  shiftStartTime: zod.string().optional().describe("HH:MM format, e.g. 09:00"),
+  shiftEndTime: zod.string().optional().describe("HH:MM format, e.g. 17:00"),
+  maxPatientsPerDay: zod.number().optional(),
+  clinicAddress: zod.string().nullish(),
 });
 
 /**
  * @summary Create the clinic for the authenticated user
  */
+export const createMyClinicBodyNameMin = 2;
+export const createMyClinicBodyNameMax = 80;
 
+export const createMyClinicBodyNameRegExp = new RegExp(
+  "^[A-Za-z0-9][A-Za-z0-9\\s.'&-]{1,79}$",
+);
+export const createMyClinicBodyDoctorNameMin = 2;
+export const createMyClinicBodyDoctorNameMax = 80;
+
+export const createMyClinicBodyDoctorNameRegExp = new RegExp(
+  "^[A-Za-z][A-Za-z\\s.'-]{1,79}$",
+);
 export const createMyClinicBodyAvgConsultationMinutesMax = 120;
 
-export const createMyClinicBodyWhatsappNumberMin = 6;
+export const createMyClinicBodyWhatsappNumberMin = 10;
+export const createMyClinicBodyWhatsappNumberMax = 15;
+
+export const createMyClinicBodyWhatsappNumberRegExp = new RegExp(
+  "^[0-9]{10,15}$",
+);
+export const createMyClinicBodyShiftStartTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const createMyClinicBodyShiftEndTimeRegExp = new RegExp(
+  "^([01]\\d|2[0-3]):[0-5]\\d$",
+);
+export const createMyClinicBodyClinicAddressMin = 5;
+export const createMyClinicBodyClinicAddressMax = 200;
 
 export const CreateMyClinicBody = zod.object({
-  name: zod.string().min(1),
-  doctorName: zod.string().min(1),
+  name: zod
+    .string()
+    .min(createMyClinicBodyNameMin)
+    .max(createMyClinicBodyNameMax)
+    .regex(createMyClinicBodyNameRegExp),
+  doctorName: zod
+    .string()
+    .min(createMyClinicBodyDoctorNameMin)
+    .max(createMyClinicBodyDoctorNameMax)
+    .regex(createMyClinicBodyDoctorNameRegExp),
   avgConsultationMinutes: zod
     .number()
     .min(1)
     .max(createMyClinicBodyAvgConsultationMinutesMax),
-  whatsappNumber: zod.string().min(createMyClinicBodyWhatsappNumberMin),
-  shiftStartTime: zod.string().optional(),
-  shiftEndTime: zod.string().optional(),
-  clinicAddress: zod.string().optional(),
+  whatsappNumber: zod
+    .string()
+    .min(createMyClinicBodyWhatsappNumberMin)
+    .max(createMyClinicBodyWhatsappNumberMax)
+    .regex(createMyClinicBodyWhatsappNumberRegExp),
+  shiftStartTime: zod
+    .string()
+    .regex(createMyClinicBodyShiftStartTimeRegExp)
+    .optional(),
+  shiftEndTime: zod
+    .string()
+    .regex(createMyClinicBodyShiftEndTimeRegExp)
+    .optional(),
+  clinicAddress: zod
+    .string()
+    .min(createMyClinicBodyClinicAddressMin)
+    .max(createMyClinicBodyClinicAddressMax)
+    .optional(),
 });
 
 /**
@@ -249,16 +361,41 @@ export const ListMyQueueResponse = zod.array(ListMyQueueResponseItem);
 /**
  * @summary Add a patient to the queue
  */
+export const addPatientToQueueBodyNameMin = 2;
+export const addPatientToQueueBodyNameMax = 80;
 
-export const addPatientToQueueBodyPhoneMin = 4;
+export const addPatientToQueueBodyNameRegExp = new RegExp(
+  "^[A-Za-z][A-Za-z\\s.'-]{1,79}$",
+);
+export const addPatientToQueueBodyPhoneMin = 10;
+export const addPatientToQueueBodyPhoneMax = 15;
+
+export const addPatientToQueueBodyPhoneRegExp = new RegExp("^[0-9]{10,15}$");
 
 export const AddPatientToQueueBody = zod.object({
-  name: zod.string().min(1),
-  phone: zod.string().min(addPatientToQueueBodyPhoneMin),
-  address: zod.string().optional(),
-  email: zod.string().email().optional(),
-  age: zod.number().min(0).max(120).optional(),
-  emergencyContact: zod.string().optional(),
+  name: zod
+    .string()
+    .min(addPatientToQueueBodyNameMin)
+    .max(addPatientToQueueBodyNameMax)
+    .regex(addPatientToQueueBodyNameRegExp),
+  phone: zod
+    .string()
+    .min(addPatientToQueueBodyPhoneMin)
+    .max(addPatientToQueueBodyPhoneMax)
+    .regex(addPatientToQueueBodyPhoneRegExp),
+});
+
+/**
+ * @summary Check if a new appointment is possible today
+ */
+export const CheckEligibilityResponse = zod.object({
+  canGetAppointment: zod.boolean(),
+  currentQueueLength: zod.number(),
+  estimatedWaitMinutes: zod.number(),
+  shiftEndTime: zod.string(),
+  shiftStartTime: zod.string().optional(),
+  timeUntilShiftEnd: zod.number().describe("Minutes until doctor shift ends"),
+  reason: zod.string().nullish(),
 });
 
 /**
@@ -320,6 +457,36 @@ export const AdvanceQueueResponse = zod.object({
 });
 
 /**
+ * @summary Reorder the waiting queue
+ */
+export const ReorderQueueBody = zod.object({
+  orderedIds: zod.array(zod.string()),
+});
+
+export const ReorderQueueResponseItem = zod.object({
+  id: zod.string(),
+  clinicId: zod.string(),
+  name: zod.string(),
+  phone: zod.string(),
+  tokenNumber: zod.number(),
+  status: zod.enum(["waiting", "in_progress", "done", "skipped"]),
+  trackingCode: zod.string(),
+  position: zod.number().describe("0 = currently being served, 1 = next, etc."),
+  estimatedWaitMinutes: zod.number(),
+  reminderStage: zod.enum([
+    "none",
+    "three_away",
+    "two_away",
+    "one_away",
+    "your_turn",
+    "done",
+  ]),
+  createdAt: zod.coerce.date(),
+  completedAt: zod.coerce.date().nullish(),
+});
+export const ReorderQueueResponse = zod.array(ReorderQueueResponseItem);
+
+/**
  * @summary Remove a patient from the queue
  */
 export const RemovePatientParams = zod.object({
@@ -372,24 +539,6 @@ export const GetPublicClinicResponse = zod.object({
 });
 
 /**
- * @summary Public self-registration into a clinic's queue (used after WhatsApp scan)
- */
-export const PublicJoinQueueParams = zod.object({
-  slug: zod.coerce.string(),
-});
-
-export const publicJoinQueueBodyPhoneMin = 4;
-
-export const PublicJoinQueueBody = zod.object({
-  name: zod.string().min(1),
-  phone: zod.string().min(publicJoinQueueBodyPhoneMin),
-  address: zod.string().optional(),
-  email: zod.string().email().optional(),
-  age: zod.number().min(0).max(120).optional(),
-  emergencyContact: zod.string().optional(),
-});
-
-/**
  * @summary Get live tracking info for a patient
  */
 export const GetPublicTrackingParams = zod.object({
@@ -414,4 +563,13 @@ export const GetPublicTrackingResponse = zod.object({
     "done",
   ]),
   avgConsultationMinutes: zod.number(),
+  totalToday: zod.number().optional(),
+  completedToday: zod.number().optional(),
+  clinicWhatsappNumber: zod.string().nullish(),
+  clinicAddress: zod.string().nullish(),
 });
+
+/**
+ * @summary Receive incoming WhatsApp messages for opt-in/out
+ */
+export const WhatsappWebhookBody = zod.object({}).passthrough();

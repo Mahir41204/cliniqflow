@@ -15,6 +15,11 @@ import {
 
 const router: IRouter = Router();
 
+function isValidTimeRange(start?: string | null, end?: string | null): boolean {
+  if (!start || !end) return true;
+  return start < end;
+}
+
 function serializeClinic(row: typeof clinicsTable.$inferSelect) {
   return {
     id: row.id,
@@ -55,6 +60,10 @@ router.post("/clinics", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Clinic already exists" });
     return;
   }
+  if (!isValidTimeRange(parsed.data.shiftStartTime, parsed.data.shiftEndTime)) {
+    res.status(400).json({ error: "Shift end time must be after start time" });
+    return;
+  }
   const slug = await uniqueSlugFromName(parsed.data.name);
   const [created] = await db
     .insert(clinicsTable)
@@ -87,6 +96,12 @@ router.patch("/clinics/me", async (req, res): Promise<void> => {
   const existing = await loadClinicByOwner(req.user.id);
   if (!existing) {
     res.status(404).json({ error: "Clinic not found" });
+    return;
+  }
+  const startTime = parsed.data.shiftStartTime ?? existing.shiftStartTime;
+  const endTime = parsed.data.shiftEndTime ?? existing.shiftEndTime;
+  if (!isValidTimeRange(startTime, endTime)) {
+    res.status(400).json({ error: "Shift end time must be after start time" });
     return;
   }
   const update: Partial<typeof clinicsTable.$inferInsert> = {};

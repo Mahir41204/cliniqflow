@@ -20,4 +20,10 @@ export interface PublicTracking {
   currentTokenNumber: number | null;
   reminderStage: PublicTrackingReminderStage;
   avgConsultationMinutes: number;
+  totalToday?: number;
+  completedToday?: number;
+  /** @nullable */
+  clinicWhatsappNumber?: string | null;
+  /** @nullable */
+  clinicAddress?: string | null;
 }

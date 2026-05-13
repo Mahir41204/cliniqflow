@@ -5,6 +5,7 @@ import { db, patientsTable } from "@workspace/db";
 import {
   AddPatientToQueueBody,
   RemovePatientParams,
+  ReorderQueueBody,
   SkipPatientParams,
 } from "@workspace/api-zod";
 import {
@@ -76,6 +77,9 @@ router.post("/patients", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const activeQueue = await loadActiveQueueOrdered(clinic.id);
+  const hasActive = activeQueue.some((p) => p.status === "in_progress" || p.status === "waiting");
+  const initialStatus = hasActive ? "waiting" : "in_progress";
   const tokenNumber = await nextTokenNumber(clinic.id);
   const [row] = await db
     .insert(patientsTable)
@@ -86,11 +90,7 @@ router.post("/patients", async (req, res): Promise<void> => {
       phone: parsed.data.phone,
       tokenNumber,
       trackingCode: generateTrackingCode(),
-      status: "waiting",
-      address: parsed.data.address,
-      email: parsed.data.email,
-      age: parsed.data.age,
-      emergencyContact: parsed.data.emergencyContact,
+      status: initialStatus,
     })
     .returning();
   const queue = await buildSerializedQueue(
@@ -127,6 +127,56 @@ router.post("/patients", async (req, res): Promise<void> => {
   // notify nearby patients asynchronously
   void notifyNearbyPatientsOnChange(clinic.id);
   res.status(201).json(fresh ?? serialize(row!, 0, clinic.avgConsultationMinutes));
+});
+
+router.post("/patients/reorder", async (req, res): Promise<void> => {
+  if (!req.isAuthenticated()) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const clinic = await loadClinicByOwner(req.user.id);
+  if (!clinic) {
+    res.status(404).json({ error: "Clinic not found" });
+    return;
+  }
+  const parsed = ReorderQueueBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const ordered = await loadActiveQueueOrdered(clinic.id);
+  const inProgress = ordered.find((p) => p.status === "in_progress");
+  const waiting = ordered.filter((p) => p.status === "waiting");
+  const waitingIds = new Set(waiting.map((p) => p.id));
+  const incomingIds = parsed.data.orderedIds;
+
+  if (incomingIds.length !== waiting.length) {
+    res.status(400).json({ error: "orderedIds must include all waiting patients." });
+    return;
+  }
+  for (const id of incomingIds) {
+    if (!waitingIds.has(id)) {
+      res.status(400).json({ error: "orderedIds contains invalid patient ids." });
+      return;
+    }
+  }
+
+  const baseToken = (inProgress?.tokenNumber ?? 0) + 1;
+  await db.transaction(async (tx) => {
+    for (let i = 0; i < incomingIds.length; i += 1) {
+      await tx
+        .update(patientsTable)
+        .set({ tokenNumber: baseToken + i })
+        .where(and(eq(patientsTable.id, incomingIds[i]!), eq(patientsTable.clinicId, clinic.id)));
+    }
+  });
+
+  void notifyNearbyPatientsOnChange(clinic.id);
+  const queue = await buildSerializedQueue(
+    clinic.id,
+    clinic.avgConsultationMinutes,
+  );
+  res.json(queue);
 });
 
 router.post("/patients/next", async (req, res): Promise<void> => {

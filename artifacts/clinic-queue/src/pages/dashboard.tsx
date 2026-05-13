@@ -1,4 +1,4 @@
-import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, useCheckEligibility, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey } from "@workspace/api-client-react";
+import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, useCheckEligibility, useReorderQueue, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey } from "@workspace/api-client-react";
 import type { Patient } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/auth-web";
 import { Redirect, Link } from "wouter";
@@ -7,7 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { QRCodeCanvas } from "qrcode.react";
-import { Copy, Plus, MoreVertical, SkipForward, Trash2, ArrowRight, Activity, Users, Clock, CheckCircle2, UserPlus, QrCode, History, AlertTriangle } from "lucide-react";
+import { Copy, MoreVertical, SkipForward, Trash2, ArrowRight, Activity, Users, Clock, CheckCircle2, UserPlus, QrCode, History, AlertTriangle, GripVertical, ArrowUp } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,21 +17,52 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { DragEvent } from "react";
+
+const namePattern = /^[A-Za-z][A-Za-z\s.'-]{1,79}$/;
+const phonePattern = /^\d{10,15}$/;
 
 const addPatientSchema = z.object({
-  name: z.string().min(2, "Name required"),
-  phone: z.string().min(4, "Phone required"),
-  address: z.string().optional(),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
-  age: z.coerce.number().min(0).max(120).optional().or(z.literal("")),
-  emergencyContact: z.string().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Name required")
+    .max(80, "Name is too long")
+    .regex(namePattern, "Use letters, spaces, and .'- only"),
+  phone: z
+    .string()
+    .trim()
+    .regex(phonePattern, "Enter 10-15 digits, country code included"),
 });
 
 function maskPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.length <= 6) return digits;
   return digits.slice(0, 3) + "····" + digits.slice(-3);
+}
+
+function formatCountdownMs(ms: number): string {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const mm = Math.floor(totalSeconds / 60);
+  const ss = totalSeconds % 60;
+  return `${mm.toString().padStart(2, "0")}:${ss.toString().padStart(2, "0")}`;
+}
+
+function loadQueueSnapshot(key: string): { at: number; waitingIdSetKey: string } | null {
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { at?: number; waitingIdSetKey?: string };
+    if (!parsed.at || !parsed.waitingIdSetKey) return null;
+    return { at: parsed.at, waitingIdSetKey: parsed.waitingIdSetKey };
+  } catch {
+    return null;
+  }
+}
+
+function saveQueueSnapshot(key: string, at: number, waitingIdSetKey: string) {
+  window.localStorage.setItem(key, JSON.stringify({ at, waitingIdSetKey }));
 }
 
 export default function Dashboard() {
@@ -57,6 +88,7 @@ export default function Dashboard() {
     query: { enabled: !!clinic, refetchInterval: 3000, queryKey: getListMyQueueQueryKey() }
   });
   const queue = queueQuery.data || [];
+  const isQueueReady = queueQuery.isSuccess;
 
   const historyQuery = useGetMyClinicHistory({
     query: { enabled: !!clinic, refetchInterval: 3000, queryKey: getGetMyClinicHistoryQueryKey() }
@@ -67,12 +99,17 @@ export default function Dashboard() {
   const advanceQueue = useAdvanceQueue();
   const skipPatient = useSkipPatient();
   const removePatient = useRemovePatient();
+  const reorderQueue = useReorderQueue();
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [orderedWaitingIds, setOrderedWaitingIds] = useState<string[] | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [queueSnapshotAt, setQueueSnapshotAt] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
   const form = useForm<z.infer<typeof addPatientSchema>>({
     resolver: zodResolver(addPatientSchema),
-    defaultValues: { name: "", phone: "", address: "", email: "", emergencyContact: "" },
+    defaultValues: { name: "", phone: "" },
   });
 
   const invalidateData = () => {
@@ -139,16 +176,123 @@ export default function Dashboard() {
     toast({ title: "Copied to clipboard" });
   };
 
+  const waitingListBase = queue.filter(p => p.status === "waiting").sort((a, b) => a.position - b.position);
+  const waitingIds = waitingListBase.map((p) => p.id);
+  const waitingIdKey = waitingIds.join("|");
+  const waitingIdSetKey = [...waitingIds].sort().join("|");
+
+  useEffect(() => {
+    if (!orderedWaitingIds) return;
+    if (orderedWaitingIds.length !== waitingIds.length || orderedWaitingIds.some((id) => !waitingIds.includes(id))) {
+      setOrderedWaitingIds(null);
+    }
+  }, [waitingIdKey, orderedWaitingIds, waitingIds]);
+
+  useEffect(() => {
+    if (!clinic || !isQueueReady) return;
+    const storageKey = `clinic-queue:snapshot:${clinic.id}`;
+    const stored = loadQueueSnapshot(storageKey);
+    if (stored && stored.waitingIdSetKey === waitingIdSetKey) {
+      setQueueSnapshotAt(stored.at);
+      return;
+    }
+    const nowMs = Date.now();
+    setQueueSnapshotAt(nowMs);
+    saveQueueSnapshot(storageKey, nowMs, waitingIdSetKey);
+  }, [clinic, isQueueReady, waitingIdSetKey, queue.length]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const waitingById = new Map(waitingListBase.map((p) => [p.id, p] as const));
+  const effectiveWaitingIds = orderedWaitingIds ?? waitingIds;
+  const waitingList = effectiveWaitingIds
+    .map((id) => waitingById.get(id))
+    .filter(Boolean) as Patient[];
+  const nextWaitMinutes = waitingList[0]?.estimatedWaitMinutes ?? 0;
+  const nextWaitRemainingMs = Math.max(
+    0,
+    Math.round(nextWaitMinutes * 60 * 1000 - (now - queueSnapshotAt)),
+  );
+
+  const applyReorder = (nextIds: string[], successTitle?: string) => {
+    if (reorderQueue.isPending) return;
+    setOrderedWaitingIds(nextIds);
+    reorderQueue.mutate(
+      { data: { orderedIds: nextIds } },
+      {
+        onSuccess: () => {
+          setOrderedWaitingIds(null);
+          invalidateData();
+          if (successTitle) toast({ title: successTitle });
+        },
+        onError: (err) => {
+          setOrderedWaitingIds(null);
+          toast({
+            title: "Could not reorder queue",
+            description: err instanceof Error ? err.message : "Please try again.",
+            variant: "destructive",
+          });
+        },
+      }
+    );
+  };
+
+  const moveId = (ids: string[], activeId: string, overId: string) => {
+    const from = ids.indexOf(activeId);
+    const to = ids.indexOf(overId);
+    if (from === -1 || to === -1) return ids;
+    const next = [...ids];
+    next.splice(from, 1);
+    next.splice(to, 0, activeId);
+    return next;
+  };
+
+  const handleMoveToTop = (id: string) => {
+    const current = orderedWaitingIds ?? waitingIds;
+    if (current[0] === id) return;
+    const next = [id, ...current.filter((existingId) => existingId !== id)];
+    applyReorder(next, "Moved to top");
+  };
+
+  const handleDragStart = (event: DragEvent, id: string) => {
+    if (reorderQueue.isPending) return;
+    setDraggingId(id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", id);
+  };
+
+  const handleDragOver = (event: DragEvent) => {
+    if (reorderQueue.isPending) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (event: DragEvent, targetId: string) => {
+    if (reorderQueue.isPending) return;
+    event.preventDefault();
+    const draggedId = draggingId || event.dataTransfer.getData("text/plain");
+    if (!draggedId || draggedId === targetId) return;
+    const current = orderedWaitingIds ?? waitingIds;
+    const next = moveId(current, draggedId, targetId);
+    setDraggingId(null);
+    applyReorder(next);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+  };
+
   if (isAuthLoading || isClinicLoading) return null;
   if (!isAuthenticated) return <Redirect to="/" />;
   if (!clinic) return <Redirect to="/setup" />;
 
   const currentlyServing = queue.find(p => p.status === "in_progress");
-  const waitingList = queue.filter(p => p.status === "waiting").sort((a, b) => a.position - b.position);
   
   const cleanPhone = clinic.whatsappNumber.replace(/\D/g, '');
   const waUrl = `https://wa.me/${cleanPhone}?text=Hi`;
-  const joinUrl = `${window.location.origin}${import.meta.env.BASE_URL}join/${clinic.slug}`;
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-up-in">
@@ -197,7 +341,7 @@ export default function Dashboard() {
                         <FormItem>
                           <FormLabel>Patient Name *</FormLabel>
                           <FormControl>
-                            <Input placeholder="John Doe" className="h-11 rounded-xl bg-muted/30" {...field} />
+                            <Input placeholder="John Doe" className="h-11 rounded-xl bg-muted/30" maxLength={80} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -210,7 +354,15 @@ export default function Dashboard() {
                         <FormItem>
                           <FormLabel>WhatsApp Number *</FormLabel>
                           <FormControl>
-                            <Input placeholder="9876543210" type="tel" className="h-11 rounded-xl bg-muted/30" {...field} />
+                            <Input
+                              placeholder="919876543210"
+                              type="tel"
+                              inputMode="numeric"
+                              pattern="\d{10,15}"
+                              maxLength={15}
+                              className="h-11 rounded-xl bg-muted/30"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -218,63 +370,6 @@ export default function Dashboard() {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="age"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Age</FormLabel>
-                          <FormControl>
-                            <Input placeholder="30" type="number" className="h-11 rounded-xl bg-muted/30" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="email"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Email Address</FormLabel>
-                          <FormControl>
-                            <Input placeholder="john@example.com" type="email" className="h-11 rounded-xl bg-muted/30" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Home Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="123 Main St, City" className="h-11 rounded-xl bg-muted/30" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="emergencyContact"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Emergency Contact</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Name - Phone" className="h-11 rounded-xl bg-muted/30" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
                   <DialogFooter className="pt-4">
                     <DialogClose asChild>
                       <Button type="button" variant="ghost" className="rounded-xl">Cancel</Button>
@@ -292,7 +387,7 @@ export default function Dashboard() {
 
       {/* Stats Row */}
       {stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
           <Card className="shadow-botanical border-primary/20 bg-gradient-to-br from-primary/[0.06] to-primary/[0.02] overflow-hidden relative">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
@@ -314,6 +409,17 @@ export default function Dashboard() {
               </div>
               <div className="h-10 w-10 rounded-2xl bg-amber-500/10 flex items-center justify-center">
                 <Users className="h-5 w-5 text-amber-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="shadow-botanical overflow-hidden">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Next Wait</p>
+                <p className="text-3xl font-bold text-foreground tabular-nums font-heading">{formatCountdownMs(nextWaitRemainingMs)}</p>
+              </div>
+              <div className="h-10 w-10 rounded-2xl bg-blue-500/10 flex items-center justify-center">
+                <Clock className="h-5 w-5 text-blue-600" />
               </div>
             </CardContent>
           </Card>
@@ -402,6 +508,7 @@ export default function Dashboard() {
                 <Users className="h-4 w-4 text-muted-foreground" /> Up Next
                 <span className="ml-1 text-sm font-sans font-normal text-muted-foreground">({waitingList.length})</span>
               </h2>
+              <span className="text-xs text-muted-foreground">Drag to reorder</span>
             </div>
             <ScrollArea className="flex-1 max-h-[500px]">
               {waitingList.length > 0 ? (
@@ -409,18 +516,38 @@ export default function Dashboard() {
                   {waitingList.map((patient, index) => (
                     <div
                       key={patient.id}
-                      className="p-4 flex items-center justify-between hover:bg-muted/20 transition-colors group animate-fade-up-in"
+                      className={`p-4 flex items-center justify-between hover:bg-muted/20 transition-colors group animate-fade-up-in ${draggingId === patient.id ? "opacity-60" : ""}`}
                       style={{ animationDelay: `${index * 40}ms` }}
+                      onDragOver={handleDragOver}
+                      onDrop={(event) => handleDrop(event, patient.id)}
                     >
                       <div className="flex items-center gap-4">
+                        <div
+                          className="h-9 w-9 flex items-center justify-center rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted/40 cursor-grab"
+                          draggable
+                          onDragStart={(event) => handleDragStart(event, patient.id)}
+                          onDragEnd={handleDragEnd}
+                          title="Drag to reorder"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </div>
                         <div className="w-11 h-11 bg-muted/50 rounded-xl flex items-center justify-center text-lg font-bold tabular-nums text-foreground border border-border/50 shadow-sm font-heading">
                           {patient.tokenNumber}
                         </div>
                         <div>
-                          <h4 className="font-semibold text-foreground">{patient.name}</h4>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">{patient.name}</h4>
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {formatCountdownMs(
+                                Math.max(
+                                  0,
+                                  Math.round(patient.estimatedWaitMinutes * 60 * 1000 - (now - queueSnapshotAt)),
+                                ),
+                              )}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                             <span className="bg-muted/50 px-1.5 py-0.5 rounded">#{patient.position}</span>
-                            <span>~{patient.estimatedWaitMinutes}m wait</span>
                           </div>
                         </div>
                       </div>
@@ -431,6 +558,9 @@ export default function Dashboard() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
+                          <DropdownMenuItem onClick={() => handleMoveToTop(patient.id)} className="rounded-lg">
+                            <ArrowUp className="mr-2 h-4 w-4" /> Move to top
+                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleSkip(patient.id)} className="rounded-lg">
                             <SkipForward className="mr-2 h-4 w-4" /> Skip Patient
                           </DropdownMenuItem>
@@ -461,25 +591,16 @@ export default function Dashboard() {
           <Card className="shadow-botanical overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="font-heading text-lg flex items-center gap-2">
-                <QrCode className="h-4 w-4 text-primary" /> Patient Registration
+                <QrCode className="h-4 w-4 text-primary" /> WhatsApp Registration
               </CardTitle>
-              <CardDescription>Share QR code for patients to self-register.</CardDescription>
+              <CardDescription>Scan to open WhatsApp and send “Hi” for the live link.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5">
               <div className="flex justify-center p-5 bg-white rounded-2xl border border-border/50 shadow-sm">
-                <QRCodeCanvas value={joinUrl} size={180} level="H" includeMargin={false} />
+                <QRCodeCanvas value={waUrl} size={180} level="H" includeMargin={false} />
               </div>
               
               <div className="space-y-3">
-                <div>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">Join Link</p>
-                  <div className="flex items-center gap-2">
-                    <Input readOnly value={joinUrl} className="h-9 font-mono text-xs bg-muted/30 rounded-lg" />
-                    <Button variant="secondary" size="icon" className="h-9 w-9 shrink-0 rounded-lg" onClick={() => copyToClipboard(joinUrl)}>
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wider">WhatsApp</p>
                   <div className="flex items-center gap-2">

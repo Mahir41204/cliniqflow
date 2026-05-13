@@ -13,17 +13,44 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 
-const updateSchema = z.object({
-  name: z.string().min(2, "Clinic name is required"),
-  doctorName: z.string().min(2, "Doctor name is required"),
-  avgConsultationMinutes: z.coerce.number().min(1).max(120),
-  whatsappNumber: z.string().min(10, "Enter valid WhatsApp number with country code")
-    .regex(/^\d+$/, "Digits only — no +, spaces or hyphens"),
-  shiftStartTime: z.string().optional(),
-  shiftEndTime: z.string().optional(),
-  maxPatientsPerDay: z.coerce.number().min(1).optional(),
-  clinicAddress: z.string().optional(),
-});
+const clinicNamePattern = /^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$/;
+const doctorNamePattern = /^[A-Za-z][A-Za-z\s.'-]{1,79}$/;
+const phonePattern = /^\d{10,15}$/;
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function isValidTimeRange(start?: string, end?: string): boolean {
+  if (!start || !end) return true;
+  return start < end;
+}
+
+const updateSchema = z
+  .object({
+    name: z
+      .string()
+      .trim()
+      .min(2, "Clinic name is required")
+      .max(80, "Clinic name is too long")
+      .regex(clinicNamePattern, "Use letters, numbers, spaces, and .&'- only"),
+    doctorName: z
+      .string()
+      .trim()
+      .min(2, "Doctor name is required")
+      .max(80, "Doctor name is too long")
+      .regex(doctorNamePattern, "Use letters, spaces, and .'- only"),
+    avgConsultationMinutes: z.coerce.number().int().min(1).max(120),
+    whatsappNumber: z
+      .string()
+      .trim()
+      .regex(phonePattern, "Enter 10-15 digits, country code included"),
+    shiftStartTime: z.string().regex(timePattern, "Use HH:MM (24-hour)").optional(),
+    shiftEndTime: z.string().regex(timePattern, "Use HH:MM (24-hour)").optional(),
+    maxPatientsPerDay: z.coerce.number().int().min(1).max(500).optional(),
+    clinicAddress: z.string().trim().min(5, "Address is too short").max(200, "Address is too long").optional().or(z.literal("")),
+  })
+  .refine(
+    (data) => isValidTimeRange(data.shiftStartTime, data.shiftEndTime),
+    { message: "Shift end must be after start", path: ["shiftEndTime"] },
+  );
 
 export default function Settings() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -121,7 +148,7 @@ export default function Settings() {
                       <Stethoscope className="w-4 h-4 text-primary/60" /> Clinic Name
                     </FormLabel>
                     <FormControl>
-                      <Input className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      <Input className="h-12 bg-muted/30 rounded-xl" maxLength={80} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -137,7 +164,7 @@ export default function Settings() {
                       <User className="w-4 h-4 text-primary/60" /> Doctor Name
                     </FormLabel>
                     <FormControl>
-                      <Input className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      <Input className="h-12 bg-muted/30 rounded-xl" maxLength={80} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -154,7 +181,13 @@ export default function Settings() {
                         <Phone className="w-4 h-4 text-primary/60" /> WhatsApp Number
                       </FormLabel>
                       <FormControl>
-                        <Input className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input
+                          className="h-12 bg-muted/30 rounded-xl"
+                          inputMode="numeric"
+                          pattern="\d{10,15}"
+                          maxLength={15}
+                          {...field}
+                        />
                       </FormControl>
                       <FormDescription>Include country code, no +</FormDescription>
                       <FormMessage />
@@ -171,7 +204,7 @@ export default function Settings() {
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Input type="number" min={1} max={120} className="h-12 bg-muted/30 rounded-xl pr-16" {...field} />
+                          <Input type="number" min={1} max={120} step={1} className="h-12 bg-muted/30 rounded-xl pr-16" {...field} />
                           <span className="absolute right-4 top-3.5 text-muted-foreground text-sm pointer-events-none">min</span>
                         </div>
                       </FormControl>
@@ -226,7 +259,7 @@ export default function Settings() {
                         <User className="w-4 h-4 text-primary/60" /> Max Patients / Day
                       </FormLabel>
                       <FormControl>
-                        <Input type="number" min={1} className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input type="number" min={1} max={500} step={1} className="h-12 bg-muted/30 rounded-xl" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -241,7 +274,7 @@ export default function Settings() {
                         Clinic Address
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder="Full Address" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input placeholder="Full Address" className="h-12 bg-muted/30 rounded-xl" maxLength={200} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

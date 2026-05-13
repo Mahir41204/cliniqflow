@@ -13,12 +13,28 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
+const clinicNamePattern = /^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$/;
+const doctorNamePattern = /^[A-Za-z][A-Za-z\s.'-]{1,79}$/;
+const phonePattern = /^\d{10,15}$/;
+
 const setupSchema = z.object({
-  name: z.string().min(2, "Clinic name is required"),
-  doctorName: z.string().min(2, "Doctor name is required"),
-  avgConsultationMinutes: z.coerce.number().min(1).max(120),
-  whatsappNumber: z.string().min(10, "Please enter a valid WhatsApp number with country code (e.g. 919876543210)")
-    .regex(/^\d+$/, "Only digits are allowed, no +, spaces or hyphens"),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Clinic name is required")
+    .max(80, "Clinic name is too long")
+    .regex(clinicNamePattern, "Use letters, numbers, spaces, and .&'- only"),
+  doctorName: z
+    .string()
+    .trim()
+    .min(2, "Doctor name is required")
+    .max(80, "Doctor name is too long")
+    .regex(doctorNamePattern, "Use letters, spaces, and .'- only"),
+  avgConsultationMinutes: z.coerce.number().int().min(1).max(120),
+  whatsappNumber: z
+    .string()
+    .trim()
+    .regex(phonePattern, "Enter 10-15 digits, country code included"),
 });
 
 export default function Setup() {
@@ -105,7 +121,7 @@ export default function Setup() {
                       <Stethoscope className="w-4 h-4 text-primary/60" /> Clinic Name
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. City Care Clinic" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      <Input placeholder="e.g. City Care Clinic" className="h-12 bg-muted/30 rounded-xl" maxLength={80} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -121,7 +137,7 @@ export default function Setup() {
                       <User className="w-4 h-4 text-primary/60" /> Doctor Name
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. Sharma" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                      <Input placeholder="e.g. Sharma" className="h-12 bg-muted/30 rounded-xl" maxLength={80} {...field} />
                     </FormControl>
                     <FormDescription>Patients will see "Dr. [Name]"</FormDescription>
                     <FormMessage />
@@ -139,7 +155,14 @@ export default function Setup() {
                         <Phone className="w-4 h-4 text-primary/60" /> WhatsApp Number
                       </FormLabel>
                       <FormControl>
-                        <Input placeholder="919876543210" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        <Input
+                          placeholder="919876543210"
+                          className="h-12 bg-muted/30 rounded-xl"
+                          inputMode="numeric"
+                          pattern="\d{10,15}"
+                          maxLength={15}
+                          {...field}
+                        />
                       </FormControl>
                       <FormDescription>Include country code, no +</FormDescription>
                       <FormMessage />
@@ -157,7 +180,7 @@ export default function Setup() {
                       </FormLabel>
                       <FormControl>
                         <div className="relative">
-                          <Input type="number" min={1} max={120} className="h-12 bg-muted/30 rounded-xl pr-16" {...field} />
+                          <Input type="number" min={1} max={120} step={1} className="h-12 bg-muted/30 rounded-xl pr-16" {...field} />
                           <span className="absolute right-4 top-3.5 text-muted-foreground text-sm pointer-events-none">min</span>
                         </div>
                       </FormControl>

@@ -6,9 +6,4 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface PublicJoinRequest {
-  /** @minLength 1 */
-  name: string;
-  /** @minLength 4 */
-  phone: string;
-}
+export type WhatsappWebhookBodyTwo = { [key: string]: unknown };

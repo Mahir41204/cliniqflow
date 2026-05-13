@@ -34,10 +34,11 @@ import type {
   MobileTokenExchangeSuccess,
   Patient,
   PublicClinic,
-  PublicJoinRequest,
-  PublicJoinResponse,
   PublicTracking,
+  ReorderQueueRequest,
   UpdateClinicRequest,
+  WhatsappWebhookBodyOne,
+  WhatsappWebhookBodyTwo,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -1122,81 +1123,6 @@ export function useListMyQueue<
 }
 
 /**
- * @summary Check if a new appointment is possible today
- */
-export const getCheckEligibilityUrl = () => {
-  return `/api/patients/eligibility`;
-};
-
-export const checkEligibility = async (
-  options?: RequestInit,
-): Promise<EligibilityCheck> => {
-  return customFetch<EligibilityCheck>(getCheckEligibilityUrl(), {
-    ...options,
-    method: "GET",
-  });
-};
-
-export const getCheckEligibilityQueryKey = () => {
-  return [`/api/patients/eligibility`] as const;
-};
-
-export const getCheckEligibilityQueryOptions = <
-  TData = Awaited<ReturnType<typeof checkEligibility>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof checkEligibility>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-
-  const queryKey = queryOptions?.queryKey ?? getCheckEligibilityQueryKey();
-
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof checkEligibility>>> = ({
-    signal,
-  }) => checkEligibility({ signal, ...requestOptions });
-
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof checkEligibility>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
-
-export type CheckEligibilityQueryResult = NonNullable<
-  Awaited<ReturnType<typeof checkEligibility>>
->;
-export type CheckEligibilityQueryError = ErrorType<unknown>;
-
-/**
- * @summary Check if a new appointment is possible today
- */
-
-export function useCheckEligibility<
-  TData = Awaited<ReturnType<typeof checkEligibility>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof checkEligibility>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getCheckEligibilityQueryOptions(options);
-
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
-
-  return { ...query, queryKey: queryOptions.queryKey };
-}
-
-/**
  * @summary Add a patient to the queue
  */
 export const getAddPatientToQueueUrl = () => {
@@ -1283,6 +1209,81 @@ export const useAddPatientToQueue = <
 };
 
 /**
+ * @summary Check if a new appointment is possible today
+ */
+export const getCheckEligibilityUrl = () => {
+  return `/api/patients/eligibility`;
+};
+
+export const checkEligibility = async (
+  options?: RequestInit,
+): Promise<EligibilityCheck> => {
+  return customFetch<EligibilityCheck>(getCheckEligibilityUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getCheckEligibilityQueryKey = () => {
+  return [`/api/patients/eligibility`] as const;
+};
+
+export const getCheckEligibilityQueryOptions = <
+  TData = Awaited<ReturnType<typeof checkEligibility>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getCheckEligibilityQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof checkEligibility>>
+  > = ({ signal }) => checkEligibility({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type CheckEligibilityQueryResult = NonNullable<
+  Awaited<ReturnType<typeof checkEligibility>>
+>;
+export type CheckEligibilityQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Check if a new appointment is possible today
+ */
+
+export function useCheckEligibility<
+  TData = Awaited<ReturnType<typeof checkEligibility>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof checkEligibility>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getCheckEligibilityQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Mark current patient as done and call the next one
  */
 export const getAdvanceQueueUrl = () => {
@@ -1361,6 +1362,92 @@ export const useAdvanceQueue = <
   TContext
 > => {
   return useMutation(getAdvanceQueueMutationOptions(options));
+};
+
+/**
+ * @summary Reorder the waiting queue
+ */
+export const getReorderQueueUrl = () => {
+  return `/api/patients/reorder`;
+};
+
+export const reorderQueue = async (
+  reorderQueueRequest: ReorderQueueRequest,
+  options?: RequestInit,
+): Promise<Patient[]> => {
+  return customFetch<Patient[]>(getReorderQueueUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderQueueRequest),
+  });
+};
+
+export const getReorderQueueMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderQueue>>,
+    TError,
+    { data: BodyType<ReorderQueueRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderQueue>>,
+  TError,
+  { data: BodyType<ReorderQueueRequest> },
+  TContext
+> => {
+  const mutationKey = ["reorderQueue"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderQueue>>,
+    { data: BodyType<ReorderQueueRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return reorderQueue(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderQueueMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderQueue>>
+>;
+export type ReorderQueueMutationBody = BodyType<ReorderQueueRequest>;
+export type ReorderQueueMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reorder the waiting queue
+ */
+export const useReorderQueue = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderQueue>>,
+    TError,
+    { data: BodyType<ReorderQueueRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderQueue>>,
+  TError,
+  { data: BodyType<ReorderQueueRequest> },
+  TContext
+> => {
+  return useMutation(getReorderQueueMutationOptions(options));
 };
 
 /**
@@ -1619,93 +1706,6 @@ export function useGetPublicClinic<
 }
 
 /**
- * @summary Public self-registration into a clinic's queue (used after WhatsApp scan)
- */
-export const getPublicJoinQueueUrl = (slug: string) => {
-  return `/api/public/clinics/${slug}/join`;
-};
-
-export const publicJoinQueue = async (
-  slug: string,
-  publicJoinRequest: PublicJoinRequest,
-  options?: RequestInit,
-): Promise<PublicJoinResponse> => {
-  return customFetch<PublicJoinResponse>(getPublicJoinQueueUrl(slug), {
-    ...options,
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...options?.headers },
-    body: JSON.stringify(publicJoinRequest),
-  });
-};
-
-export const getPublicJoinQueueMutationOptions = <
-  TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof publicJoinQueue>>,
-    TError,
-    { slug: string; data: BodyType<PublicJoinRequest> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof publicJoinQueue>>,
-  TError,
-  { slug: string; data: BodyType<PublicJoinRequest> },
-  TContext
-> => {
-  const mutationKey = ["publicJoinQueue"];
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
-
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof publicJoinQueue>>,
-    { slug: string; data: BodyType<PublicJoinRequest> }
-  > = (props) => {
-    const { slug, data } = props ?? {};
-
-    return publicJoinQueue(slug, data, requestOptions);
-  };
-
-  return { mutationFn, ...mutationOptions };
-};
-
-export type PublicJoinQueueMutationResult = NonNullable<
-  Awaited<ReturnType<typeof publicJoinQueue>>
->;
-export type PublicJoinQueueMutationBody = BodyType<PublicJoinRequest>;
-export type PublicJoinQueueMutationError = ErrorType<ErrorEnvelope>;
-
-/**
- * @summary Public self-registration into a clinic's queue (used after WhatsApp scan)
- */
-export const usePublicJoinQueue = <
-  TError = ErrorType<ErrorEnvelope>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof publicJoinQueue>>,
-    TError,
-    { slug: string; data: BodyType<PublicJoinRequest> },
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof publicJoinQueue>>,
-  TError,
-  { slug: string; data: BodyType<PublicJoinRequest> },
-  TContext
-> => {
-  return useMutation(getPublicJoinQueueMutationOptions(options));
-};
-
-/**
  * @summary Get live tracking info for a patient
  */
 export const getGetPublicTrackingUrl = (trackingCode: string) => {
@@ -1793,3 +1793,90 @@ export function useGetPublicTracking<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Receive incoming WhatsApp messages for opt-in/out
+ */
+export const getWhatsappWebhookUrl = () => {
+  return `/api/public/whatsapp/webhook`;
+};
+
+export const whatsappWebhook = async (
+  whatsappWebhookBody?: WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getWhatsappWebhookUrl(), {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(whatsappWebhookBody),
+  });
+};
+
+export const getWhatsappWebhookMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof whatsappWebhook>>,
+    TError,
+    { data: BodyType<WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof whatsappWebhook>>,
+  TError,
+  { data: BodyType<WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo> },
+  TContext
+> => {
+  const mutationKey = ["whatsappWebhook"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof whatsappWebhook>>,
+    { data: BodyType<WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return whatsappWebhook(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type WhatsappWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof whatsappWebhook>>
+>;
+export type WhatsappWebhookMutationBody = BodyType<
+  WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo
+>;
+export type WhatsappWebhookMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Receive incoming WhatsApp messages for opt-in/out
+ */
+export const useWhatsappWebhook = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof whatsappWebhook>>,
+    TError,
+    { data: BodyType<WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof whatsappWebhook>>,
+  TError,
+  { data: BodyType<WhatsappWebhookBodyOne | WhatsappWebhookBodyTwo> },
+  TContext
+> => {
+  return useMutation(getWhatsappWebhookMutationOptions(options));
+};

@@ -7,8 +7,16 @@
  */
 
 export interface AddPatientRequest {
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z][A-Za-z\s.'-]{1,79}$
+   */
   name: string;
-  /** @minLength 4 */
+  /**
+   * @minLength 10
+   * @maxLength 15
+   * @pattern ^[0-9]{10,15}$
+   */
   phone: string;
 }

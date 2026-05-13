@@ -3,24 +3,44 @@ import { useGetMyClinic, getGetMyClinicQueryKey } from "@workspace/api-client-re
 import { Redirect } from "wouter";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, Users, ArrowRight, Mail, Lock, User, Globe, Sparkles, Heart, Shield } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "http://localhost:8080" : "");
 
+const namePattern = /^[A-Za-z][A-Za-z\s.'-]{0,79}$/;
+const otpPattern = /^\d{6}$/;
+
 const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z.string().trim().email("Enter a valid email").max(254, "Email is too long"),
+  password: z.string().min(8, "Password must be at least 8 characters").max(64, "Password is too long"),
 });
 
 const registerSchema = loginSchema.extend({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().optional(),
+  firstName: z
+    .string()
+    .trim()
+    .min(1, "First name is required")
+    .max(80, "First name is too long")
+    .regex(namePattern, "Use letters, spaces, and .'- only"),
+  lastName: z
+    .string()
+    .trim()
+    .max(80, "Last name is too long")
+    .regex(namePattern, "Use letters, spaces, and .'- only")
+    .optional()
+    .or(z.literal("")),
+});
+
+const otpSchema = z.object({
+  email: z.string().trim().email("Enter a valid email").max(254, "Email is too long"),
+  otp: z.string().trim().regex(otpPattern, "Enter the 6-digit code"),
 });
 
 function LeafDecor({ className }: { className?: string }) {
@@ -41,7 +61,12 @@ export default function Landing() {
     query: { enabled: isAuthenticated, queryKey: getGetMyClinicQueryKey() } 
   });
 
+  const isRegisterMode = mode === "register";
+
+  const authSchema = useMemo(() => (isRegisterMode ? registerSchema : loginSchema), [isRegisterMode]);
+
   const authForm = useForm<z.infer<typeof registerSchema>>({
+    resolver: zodResolver(authSchema),
     defaultValues: {
       email: "",
       password: "",
@@ -52,9 +77,11 @@ export default function Landing() {
 
   const [otpMode, setOtpMode] = useState(false);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-  const otpForm = useForm<{ email: string; otp: string }>({ defaultValues: { email: "", otp: "" } });
+  const otpForm = useForm<z.infer<typeof otpSchema>>({
+    resolver: zodResolver(otpSchema),
+    defaultValues: { email: "", otp: "" },
+  });
 
-  const isRegisterMode = mode === "register";
   const googleCta = isRegisterMode ? "Continue with Google" : "Sign in with Google";
 
   const handleGoogleAuth = () => {
@@ -253,7 +280,14 @@ export default function Landing() {
                       <FormItem>
                         <FormLabel className="font-medium">Verification code</FormLabel>
                         <FormControl>
-                          <Input className="h-12 bg-muted/30 rounded-xl text-center text-lg tracking-[0.3em] font-mono" placeholder="000000" maxLength={6} {...field} />
+                          <Input
+                            className="h-12 bg-muted/30 rounded-xl text-center text-lg tracking-[0.3em] font-mono"
+                            placeholder="000000"
+                            inputMode="numeric"
+                            pattern="\d{6}"
+                            maxLength={6}
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -306,7 +340,7 @@ export default function Landing() {
                                 <User className="h-3.5 w-3.5 text-primary/60" /> First name
                               </FormLabel>
                               <FormControl>
-                                <Input className="h-11 bg-muted/30 rounded-xl" placeholder="Asha" {...field} />
+                                <Input className="h-11 bg-muted/30 rounded-xl" placeholder="Asha" maxLength={80} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -319,7 +353,7 @@ export default function Landing() {
                             <FormItem>
                               <FormLabel className="text-sm font-medium">Last name</FormLabel>
                               <FormControl>
-                                <Input className="h-11 bg-muted/30 rounded-xl" placeholder="Sharma" {...field} />
+                                <Input className="h-11 bg-muted/30 rounded-xl" placeholder="Sharma" maxLength={80} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -337,7 +371,7 @@ export default function Landing() {
                             <Mail className="h-3.5 w-3.5 text-primary/60" /> Email
                           </FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-muted/30 rounded-xl" placeholder="owner@clinic.com" type="email" {...field} />
+                            <Input className="h-11 bg-muted/30 rounded-xl" placeholder="owner@clinic.com" type="email" maxLength={254} autoComplete="email" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -353,7 +387,7 @@ export default function Landing() {
                             <Lock className="h-3.5 w-3.5 text-primary/60" /> Password
                           </FormLabel>
                           <FormControl>
-                            <Input className="h-11 bg-muted/30 rounded-xl" placeholder="••••••••" type="password" {...field} />
+                            <Input className="h-11 bg-muted/30 rounded-xl" placeholder="••••••••" type="password" minLength={8} maxLength={64} autoComplete={isRegisterMode ? "new-password" : "current-password"} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

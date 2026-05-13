@@ -278,6 +278,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AdvanceQueueResult'
+  /patients/reorder:
+    post:
+      tags: [Patients]
+      operationId: reorderQueue
+      summary: Reorder the waiting queue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderQueueRequest'
+      responses:
+        '200':
+          description: Updated queue order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Patient'
   /patients/{id}:
     delete:
       tags: [Patients]
@@ -329,36 +349,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicClinic'
-        '404':
-          description: Clinic not found.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-  /public/clinics/{slug}/join:
-    post:
-      tags: [Public]
-      operationId: publicJoinQueue
-      summary: Public self-registration into a clinic's queue (used after WhatsApp scan)
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PublicJoinRequest'
-      responses:
-        '201':
-          description: Patient added; returns confirmation payload.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PublicJoinResponse'
         '404':
           description: Clinic not found.
           content:
@@ -545,48 +535,69 @@ components:
       properties:
         name:
           type: string
-          minLength: 1
+          minLength: 2
+          maxLength: 80
+          pattern: "^[A-Za-z0-9][A-Za-z0-9\\s.'&-]{1,79}$"
         doctorName:
           type: string
-          minLength: 1
+          minLength: 2
+          maxLength: 80
+          pattern: "^[A-Za-z][A-Za-z\\s.'-]{1,79}$"
         avgConsultationMinutes:
           type: integer
           minimum: 1
           maximum: 120
         whatsappNumber:
           type: string
-          minLength: 6
+          minLength: 10
+          maxLength: 15
+          pattern: "^[0-9]{10,15}$"
         shiftStartTime:
           type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
         shiftEndTime:
           type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
         clinicAddress:
           type: string
+          minLength: 5
+          maxLength: 200
     UpdateClinicRequest:
       type: object
       properties:
         name:
           type: string
-          minLength: 1
+          minLength: 2
+          maxLength: 80
+          pattern: "^[A-Za-z0-9][A-Za-z0-9\\s.'&-]{1,79}$"
         doctorName:
           type: string
-          minLength: 1
+          minLength: 2
+          maxLength: 80
+          pattern: "^[A-Za-z][A-Za-z\\s.'-]{1,79}$"
         avgConsultationMinutes:
           type: integer
           minimum: 1
           maximum: 120
         whatsappNumber:
           type: string
-          minLength: 6
+          minLength: 10
+          maxLength: 15
+          pattern: "^[0-9]{10,15}$"
         shiftStartTime:
           type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
         shiftEndTime:
           type: string
+          pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"
         maxPatientsPerDay:
           type: integer
           minimum: 1
+          maximum: 500
         clinicAddress:
           type: string
+          minLength: 5
+          maxLength: 200
     ClinicStats:
       type: object
       required:
@@ -666,21 +677,22 @@ components:
       properties:
         name:
           type: string
-          minLength: 1
+          minLength: 2
+          maxLength: 80
+          pattern: "^[A-Za-z][A-Za-z\\s.'-]{1,79}$"
         phone:
           type: string
-          minLength: 4
-        address:
-          type: string
-        email:
-          type: string
-          format: email
-        age:
-          type: integer
-          minimum: 0
-          maximum: 120
-        emergencyContact:
-          type: string
+          minLength: 10
+          maxLength: 15
+          pattern: "^[0-9]{10,15}$"
+    ReorderQueueRequest:
+      type: object
+      required: [orderedIds]
+      properties:
+        orderedIds:
+          type: array
+          items:
+            type: string
     AdvanceQueueResult:
       type: object
       required: [completed, current]
@@ -716,44 +728,6 @@ components:
           type: string
         avgConsultationMinutes:
           type: integer
-    PublicJoinRequest:
-      type: object
-      required: [name, phone]
-      properties:
-        name:
-          type: string
-          minLength: 1
-        phone:
-          type: string
-          minLength: 4
-    PublicJoinResponse:
-      type: object
-      required:
-        - clinicName
-        - doctorName
-        - tokenNumber
-        - estimatedWaitMinutes
-        - position
-        - trackingCode
-        - trackingUrl
-        - whatsappConfirmationMessage
-      properties:
-        clinicName:
-          type: string
-        doctorName:
-          type: string
-        tokenNumber:
-          type: integer
-        estimatedWaitMinutes:
-          type: integer
-        position:
-          type: integer
-        trackingCode:
-          type: string
-        trackingUrl:
-          type: string
-        whatsappConfirmationMessage:
-          type: string
     PublicTracking:
       type: object
       required:

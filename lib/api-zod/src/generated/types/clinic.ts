@@ -15,4 +15,11 @@ export interface Clinic {
   /** E.164 style phone number, no plus sign required */
   whatsappNumber: string;
   createdAt: Date;
+  /** HH:MM format, e.g. 09:00 */
+  shiftStartTime?: string;
+  /** HH:MM format, e.g. 17:00 */
+  shiftEndTime?: string;
+  maxPatientsPerDay?: number;
+  /** @nullable */
+  clinicAddress?: string | null;
 }

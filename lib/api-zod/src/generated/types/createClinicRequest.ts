@@ -7,15 +7,36 @@
  */
 
 export interface CreateClinicRequest {
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$
+   */
   name: string;
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z][A-Za-z\s.'-]{1,79}$
+   */
   doctorName: string;
   /**
    * @minimum 1
    * @maximum 120
    */
   avgConsultationMinutes: number;
-  /** @minLength 6 */
+  /**
+   * @minLength 10
+   * @maxLength 15
+   * @pattern ^[0-9]{10,15}$
+   */
   whatsappNumber: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
+  shiftStartTime?: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
+  shiftEndTime?: string;
+  /**
+   * @minLength 5
+   * @maxLength 200
+   */
+  clinicAddress?: string;
 }

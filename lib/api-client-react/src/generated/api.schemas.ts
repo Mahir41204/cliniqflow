@@ -74,38 +74,77 @@ export interface ClinicEnvelope {
 }
 
 export interface CreateClinicRequest {
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$
+   */
   name: string;
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z][A-Za-z\s.'-]{1,79}$
+   */
   doctorName: string;
   /**
    * @minimum 1
    * @maximum 120
    */
   avgConsultationMinutes: number;
-  /** @minLength 6 */
+  /**
+   * @minLength 10
+   * @maxLength 15
+   * @pattern ^[0-9]{10,15}$
+   */
   whatsappNumber: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
   shiftStartTime?: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
   shiftEndTime?: string;
+  /**
+   * @minLength 5
+   * @maxLength 200
+   */
   clinicAddress?: string;
 }
 
 export interface UpdateClinicRequest {
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$
+   */
   name?: string;
-  /** @minLength 1 */
+  /**
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z][A-Za-z\s.'-]{1,79}$
+   */
   doctorName?: string;
   /**
    * @minimum 1
    * @maximum 120
    */
   avgConsultationMinutes?: number;
-  /** @minLength 6 */
+  /**
+   * @minLength 10
+   * @maxLength 15
+   * @pattern ^[0-9]{10,15}$
+   */
   whatsappNumber?: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
   shiftStartTime?: string;
+  /** @pattern ^([01]\d|2[0-3]):[0-5]\d$ */
   shiftEndTime?: string;
-  /** @minimum 1 */
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
   maxPatientsPerDay?: number;
+  /**
+   * @minLength 5
+   * @maxLength 200
+   */
   clinicAddress?: string;
 }
 
@@ -161,18 +200,22 @@ export interface Patient {
 }
 
 export interface AddPatientRequest {
-  /** @minLength 1 */
-  name: string;
-  /** @minLength 4 */
-  phone: string;
-  address?: string;
-  email?: string;
   /**
-   * @minimum 0
-   * @maximum 120
+   * @minLength 2
+   * @maxLength 80
+   * @pattern ^[A-Za-z][A-Za-z\s.'-]{1,79}$
    */
-  age?: number;
-  emergencyContact?: string;
+  name: string;
+  /**
+   * @minLength 10
+   * @maxLength 15
+   * @pattern ^[0-9]{10,15}$
+   */
+  phone: string;
+}
+
+export interface ReorderQueueRequest {
+  orderedIds: string[];
 }
 
 export interface AdvanceQueueResult {
@@ -187,24 +230,6 @@ export interface PublicClinic {
   doctorName: string;
   whatsappNumber: string;
   avgConsultationMinutes: number;
-}
-
-export interface PublicJoinRequest {
-  /** @minLength 1 */
-  name: string;
-  /** @minLength 4 */
-  phone: string;
-}
-
-export interface PublicJoinResponse {
-  clinicName: string;
-  doctorName: string;
-  tokenNumber: number;
-  estimatedWaitMinutes: number;
-  position: number;
-  trackingCode: string;
-  trackingUrl: string;
-  whatsappConfirmationMessage: string;
 }
 
 export type PublicTrackingStatus =
@@ -278,3 +303,7 @@ export type HandleBrowserLoginCallbackParams = {
   state?: string;
   iss?: string;
 };
+
+export type WhatsappWebhookBodyOne = { [key: string]: unknown };
+
+export type WhatsappWebhookBodyTwo = { [key: string]: unknown };

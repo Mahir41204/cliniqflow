@@ -7,7 +7,6 @@ import Landing from "@/pages/landing";
 import Setup from "@/pages/setup";
 import Dashboard from "@/pages/dashboard";
 import Settings from "@/pages/settings";
-import Join from "@/pages/join";
 import Track from "@/pages/track";
 import NotFound from "@/pages/not-found";
 
@@ -26,7 +25,6 @@ function Router() {
       <Route path="/settings">
         <Layout><Settings /></Layout>
       </Route>
-      <Route path="/join/:slug" component={Join} />
       <Route path="/track/:trackingCode" component={Track} />
       <Route component={NotFound} />
     </Switch>
