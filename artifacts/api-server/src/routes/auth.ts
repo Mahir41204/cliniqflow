@@ -262,6 +262,10 @@ router.get("/auth/google/callback", async (req: Request, res: Response) => {
   const buildRedirectUrl = (path: string) => `${frontendUrl}${path}`;
 
   if (!code || !state || !expectedState || state !== expectedState) {
+    logger.error(
+      { code: !!code, state, expectedState },
+      "Google OAuth callback validation failed",
+    );
     res.redirect(buildRedirectUrl(`${returnTo}?auth=google_failed`));
     return;
   }
