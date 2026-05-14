@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
-    "start": "node --env-file=../../.env --enable-source-maps ./dist/index.mjs",
-    "test": "node --env-file=../../.env --import tsx --test ./src/test/index.ts",
+    "start": "node --env-file-if-exists=../../.env --enable-source-maps ./dist/index.mjs",
+    "test": "node --env-file-if-exists=../../.env --import tsx --test ./src/test/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
