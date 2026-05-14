@@ -23,6 +23,8 @@ import {
   buildConfirmationMessage,
   trackNotificationSent,
   buildNotificationMessage,
+  buildThankYouMessage,
+  shouldSendNotification,
 } from "../lib/notifications";
 
 const router: IRouter = Router();
@@ -200,6 +202,16 @@ router.post("/patients/next", async (req, res): Promise<void> => {
       .where(eq(patientsTable.id, inProgress.id))
       .returning();
     completedRow = updated ?? null;
+
+    if (completedRow?.phone) {
+      const canSend = await shouldSendNotification(completedRow.id, "done");
+      if (canSend) {
+        const msg = buildThankYouMessage(clinic, completedRow.name);
+        void sendWhatsAppMessage(completedRow.phone, msg).then((success) => {
+          if (success) void trackNotificationSent(completedRow!.id, "done");
+        }).catch(() => undefined);
+      }
+    }
   }
   const remaining = ordered
     .filter((p) => p.id !== inProgress?.id && p.status === "waiting")

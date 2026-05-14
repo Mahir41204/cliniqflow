@@ -243,6 +243,20 @@ export function buildNotificationMessage(
   }
 }
 
+/**
+ * Thank you message sent when consultation is complete.
+ */
+export function buildThankYouMessage(
+  clinic: Clinic,
+  patientName: string,
+): string {
+  return (
+    `Hi ${patientName}! 👋\n\n` +
+    `Your consultation with Dr. ${clinic.doctorName} at ${clinic.name} is complete.\n\n` +
+    `Thank you for visiting! We wish you good health and hope to see you again if needed.`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Batch notify nearby patients on any queue change (with deduplication)
 // ---------------------------------------------------------------------------
