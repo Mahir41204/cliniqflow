@@ -6,7 +6,8 @@ import type { AuthUser } from "@workspace/api-zod";
 
 export const SESSION_COOKIE = "sid";
 export const SESSION_TTL = 7 * 24 * 60 * 60 * 1000;
-export const COOKIE_SECURE = process.env.NODE_ENV === "production";
+export const COOKIE_SECURE =
+  process.env.NODE_ENV === "production" || process.env.RENDER === "true";
 
 export interface SessionData {
   user: AuthUser;

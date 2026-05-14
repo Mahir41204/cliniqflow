@@ -38,7 +38,7 @@ function setSessionCookie(res: Response, sid: string) {
   res.cookie(SESSION_COOKIE, sid, {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: "lax",
+    sameSite: COOKIE_SECURE ? "none" : "lax",
     path: "/",
     maxAge: SESSION_TTL,
     signed: Boolean(process.env.SESSION_SECRET),
@@ -49,7 +49,7 @@ function setOAuthCookie(res: Response, name: string, value: string) {
   res.cookie(name, value, {
     httpOnly: true,
     secure: COOKIE_SECURE,
-    sameSite: "lax",
+    sameSite: COOKIE_SECURE ? "none" : "lax",
     path: "/api/auth/google",
     maxAge: 10 * 60 * 1000,
     signed: Boolean(process.env.SESSION_SECRET),
@@ -59,7 +59,7 @@ function setOAuthCookie(res: Response, name: string, value: string) {
 function clearOAuthCookies(res: Response) {
   const cookieOptions = {
     path: "/api/auth/google",
-    sameSite: "lax" as const,
+    sameSite: (COOKIE_SECURE ? "none" : "lax") as const,
     secure: COOKIE_SECURE,
   };
   res.clearCookie(GOOGLE_STATE_COOKIE, cookieOptions);
