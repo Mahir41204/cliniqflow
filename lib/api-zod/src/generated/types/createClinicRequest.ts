@@ -39,4 +39,6 @@ export interface CreateClinicRequest {
    * @maxLength 200
    */
   clinicAddress?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  defaultBreaks?: string;
 }

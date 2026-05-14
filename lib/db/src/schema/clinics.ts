@@ -25,6 +25,15 @@ export const clinicsTable = pgTable(
     shiftEndTime: text("shift_end_time").default("17:00"),
     maxPatientsPerDay: integer("max_patients_per_day").default(50),
     clinicAddress: text("clinic_address"),
+
+    // Default breaks schedule (JSON string: [{ start: "HH:MM", end: "HH:MM" }, ...])
+    defaultBreaks: text("default_breaks"),
+
+    // Optional one-day overrides
+    overrideDate: text("override_date"), // YYYY-MM-DD
+    overrideShiftStartTime: text("override_shift_start_time"),
+    overrideShiftEndTime: text("override_shift_end_time"),
+    overrideBreaks: text("override_breaks"),
   },
   (table) => [uniqueIndex("clinics_owner_id_unique").on(table.ownerId)],
 );

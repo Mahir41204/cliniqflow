@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect } from "react";
@@ -106,6 +107,8 @@ export default function Dashboard() {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [queueSnapshotAt, setQueueSnapshotAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
+  const [outsideShiftDialogOpen, setOutsideShiftDialogOpen] = useState(false);
+  const [pendingAddValues, setPendingAddValues] = useState<z.infer<typeof addPatientSchema> | null>(null);
 
   const form = useForm<z.infer<typeof addPatientSchema>>({
     resolver: zodResolver(addPatientSchema),
@@ -121,21 +124,38 @@ export default function Dashboard() {
   const addPatientRef = useRef(addPatient.mutate);
   addPatientRef.current = addPatient.mutate;
 
-  function onAddSubmit(values: z.infer<typeof addPatientSchema>) {
+  function submitAdd(values: z.infer<typeof addPatientSchema>, allowOutsideShift: boolean) {
     addPatientRef.current(
-      { data: values },
+      { data: { ...values, allowOutsideShift } },
       {
         onSuccess: (newPatient) => {
           invalidateData();
           setAddDialogOpen(false);
           form.reset();
+          setPendingAddValues(null);
           toast({
             title: "Patient Added",
             description: `${newPatient.name} assigned token #${newPatient.tokenNumber}`,
           });
-        }
+        },
+        onError: (err) => {
+          toast({
+            title: "Could not add patient",
+            description: err instanceof Error ? err.message : "Please try again.",
+            variant: "destructive",
+          });
+        },
       }
     );
+  }
+
+  function onAddSubmit(values: z.infer<typeof addPatientSchema>) {
+    if (eligibility?.outsideShiftHours) {
+      setPendingAddValues(values);
+      setOutsideShiftDialogOpen(true);
+      return;
+    }
+    submitAdd(values, false);
   }
 
   const advanceQueueRef = useRef(advanceQueue.mutate);
@@ -328,7 +348,9 @@ export default function Dashboard() {
                     <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-3 rounded-xl flex items-start gap-2 mb-4">
                       <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-semibold">Queue Full / Doctor Unavailable</p>
+                        <p className="font-semibold">
+                          {eligibility.outsideShiftHours ? "Outside shift hours" : "Queue Full / Doctor Unavailable"}
+                        </p>
                         <p>{eligibility.reason || "Appointments are no longer available for today."}</p>
                       </div>
                     </div>
@@ -382,6 +404,30 @@ export default function Dashboard() {
               </Form>
             </DialogContent>
           </Dialog>
+          <AlertDialog open={outsideShiftDialogOpen}>
+            <AlertDialogContent className="rounded-2xl">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Outside shift hours</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {eligibility?.reason || "This patient would be served after today’s shift hours."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => { setOutsideShiftDialogOpen(false); setPendingAddValues(null); }}>
+                  Cancel appointment
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    if (!pendingAddValues) return;
+                    setOutsideShiftDialogOpen(false);
+                    submitAdd(pendingAddValues, true);
+                  }}
+                >
+                  Add anyway
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 

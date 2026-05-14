@@ -17,6 +17,7 @@ export * from "./clinicEnvelope";
 export * from "./clinicStats";
 export * from "./createClinicRequest";
 export * from "./eligibilityCheck";
+export * from "./eligibilityCheckEffectiveBreaksItem";
 export * from "./errorEnvelope";
 export * from "./handleBrowserLoginCallbackParams";
 export * from "./healthStatus";

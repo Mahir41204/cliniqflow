@@ -67,6 +67,25 @@ export interface Clinic {
   maxPatientsPerDay?: number;
   /** @nullable */
   clinicAddress?: string | null;
+  /**
+   * JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...]
+   * @nullable
+   */
+  defaultBreaks?: string | null;
+  /**
+   * YYYY-MM-DD date for one-day overrides
+   * @nullable
+   */
+  overrideDate?: string | null;
+  /** @nullable */
+  overrideShiftStartTime?: string | null;
+  /** @nullable */
+  overrideShiftEndTime?: string | null;
+  /**
+   * JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...]
+   * @nullable
+   */
+  overrideBreaks?: string | null;
 }
 
 export interface ClinicEnvelope {
@@ -106,6 +125,8 @@ export interface CreateClinicRequest {
    * @maxLength 200
    */
   clinicAddress?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  defaultBreaks?: string;
 }
 
 export interface UpdateClinicRequest {
@@ -146,6 +167,14 @@ export interface UpdateClinicRequest {
    * @maxLength 200
    */
   clinicAddress?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  defaultBreaks?: string;
+  /** YYYY-MM-DD date for one-day overrides */
+  overrideDate?: string;
+  overrideShiftStartTime?: string;
+  overrideShiftEndTime?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  overrideBreaks?: string;
 }
 
 export interface ClinicStats {
@@ -212,6 +241,7 @@ export interface AddPatientRequest {
    * @pattern ^[0-9]{10,15}$
    */
   phone: string;
+  allowOutsideShift?: boolean;
 }
 
 export interface ReorderQueueRequest {
@@ -274,14 +304,22 @@ export interface PublicTracking {
   clinicAddress?: string | null;
 }
 
+export type EligibilityCheckEffectiveBreaksItem = {
+  start?: string;
+  end?: string;
+};
+
 export interface EligibilityCheck {
   canGetAppointment: boolean;
   currentQueueLength: number;
   estimatedWaitMinutes: number;
   shiftEndTime: string;
   shiftStartTime?: string;
-  /** Minutes until doctor shift ends */
   timeUntilShiftEnd: number;
+  outsideShiftHours: boolean;
+  breakMinutesAdded?: number;
+  /** Minutes until doctor shift ends */
+  effectiveBreaks?: EligibilityCheckEffectiveBreaksItem[];
   /** @nullable */
   reason?: string | null;
 }

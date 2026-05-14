@@ -16,6 +16,7 @@ import {
   nextTokenNumber,
   serialize,
 } from "../lib/queue";
+import { checkAppointmentEligibility } from "../lib/eligibility";
 import {
   sendWhatsAppMessage,
   notifyNearbyPatientsOnChange,
@@ -23,7 +24,6 @@ import {
   trackNotificationSent,
   buildNotificationMessage,
 } from "../lib/notifications";
-import { checkAppointmentEligibility } from "../lib/eligibility";
 
 const router: IRouter = Router();
 
@@ -77,6 +77,15 @@ router.post("/patients", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const eligibility = await checkAppointmentEligibility(clinic.id);
+  if (eligibility.outsideShiftHours && !parsed.data.allowOutsideShift) {
+    res.status(409).json({
+      error: "Outside shift hours",
+      reason: eligibility.reason,
+      outsideShiftHours: true,
+    });
+    return;
+  }
   const activeQueue = await loadActiveQueueOrdered(clinic.id);
   const hasActive = activeQueue.some((p) => p.status === "in_progress" || p.status === "waiting");
   const initialStatus = hasActive ? "waiting" : "in_progress";
@@ -111,15 +120,7 @@ router.post("/patients", async (req, res): Promise<void> => {
   );
 
   // confirmation to manually added patient
-  void sendWhatsAppMessage(parsed.data.phone, msg, {
-    contentVariables: {
-      clinicName: clinic.name,
-      doctorName: clinic.doctorName,
-      tokenNumber,
-      estimatedWaitMinutes,
-      message: msg,
-    },
-  })
+  void sendWhatsAppMessage(parsed.data.phone, msg)
     .then((success) => {
       if (success) void trackNotificationSent(row!.id, "confirmation");
     })
@@ -222,16 +223,10 @@ router.post("/patients/next", async (req, res): Promise<void> => {
     const pCurrent = queueForCurrent.find(p => p.id === currentRow!.id);
     if (pCurrent) {
       const msg = buildNotificationMessage(clinic, pCurrent);
-      void sendWhatsAppMessage(currentRow.phone, msg, {
-        contentVariables: {
-          clinicName: clinic.name,
-          doctorName: clinic.doctorName,
-          tokenNumber: currentRow.tokenNumber,
-          message: msg,
-        },
-      }).then((success) => {
-        if (success) void trackNotificationSent(currentRow!.id, "your_turn");
-      }).catch(() => undefined);
+      void sendWhatsAppMessage(currentRow.phone, msg)
+        .then((success) => {
+          if (success) void trackNotificationSent(currentRow!.id, "your_turn");
+        }).catch(() => undefined);
     }
   }
 

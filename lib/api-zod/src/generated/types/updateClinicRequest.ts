@@ -44,4 +44,12 @@ export interface UpdateClinicRequest {
    * @maxLength 200
    */
   clinicAddress?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  defaultBreaks?: string;
+  /** YYYY-MM-DD date for one-day overrides */
+  overrideDate?: string;
+  overrideShiftStartTime?: string;
+  overrideShiftEndTime?: string;
+  /** JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...] */
+  overrideBreaks?: string;
 }

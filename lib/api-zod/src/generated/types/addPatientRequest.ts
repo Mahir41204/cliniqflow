@@ -19,4 +19,5 @@ export interface AddPatientRequest {
    * @pattern ^[0-9]{10,15}$
    */
   phone: string;
+  allowOutsideShift?: boolean;
 }

@@ -4,6 +4,7 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
 import router from "./routes/index.js";
+import webhookRouter from "./routes/webhook.js";
 import { logger } from "./lib/logger.js";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
 import { apiLimiter } from "./middlewares/security.js";
@@ -42,11 +43,25 @@ app.use(
   }),
 );
 app.use(cookieParser(process.env.SESSION_SECRET || undefined));
+
+// ---------------------------------------------------------------------------
+// /webhooks — mounted BEFORE apiLimiter and express.json().
+// Twilio sends application/x-www-form-urlencoded; we need the raw body for
+// HMAC-SHA1 signature validation, so we parse it as urlencoded here.
+// ---------------------------------------------------------------------------
+app.use(
+  "/webhooks",
+  express.urlencoded({ extended: false }),
+  webhookRouter,
+);
+
+// ---------------------------------------------------------------------------
+// /api — standard JSON API with rate-limiting and auth
+// ---------------------------------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api", apiLimiter);
 app.use(authMiddleware);
-
 app.use("/api", router);
 
 export default app;

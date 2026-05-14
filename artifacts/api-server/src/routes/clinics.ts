@@ -20,6 +20,29 @@ function isValidTimeRange(start?: string | null, end?: string | null): boolean {
   return start < end;
 }
 
+const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+type BreakRange = { start: string; end: string };
+
+function validateBreaksJson(raw?: string | null): boolean {
+  if (!raw) return true;
+  try {
+    const parsed = JSON.parse(raw) as BreakRange[];
+    if (!Array.isArray(parsed)) return false;
+    return parsed.every(
+      (b) =>
+        typeof b?.start === "string" &&
+        typeof b?.end === "string" &&
+        TIME_PATTERN.test(b.start) &&
+        TIME_PATTERN.test(b.end) &&
+        b.start < b.end,
+    );
+  } catch {
+    return false;
+  }
+}
+
 function serializeClinic(row: typeof clinicsTable.$inferSelect) {
   return {
     id: row.id,
@@ -32,6 +55,11 @@ function serializeClinic(row: typeof clinicsTable.$inferSelect) {
     shiftEndTime: row.shiftEndTime,
     maxPatientsPerDay: row.maxPatientsPerDay,
     clinicAddress: row.clinicAddress,
+    defaultBreaks: row.defaultBreaks,
+    overrideDate: row.overrideDate,
+    overrideShiftStartTime: row.overrideShiftStartTime,
+    overrideShiftEndTime: row.overrideShiftEndTime,
+    overrideBreaks: row.overrideBreaks,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -64,6 +92,10 @@ router.post("/clinics", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Shift end time must be after start time" });
     return;
   }
+  if (!validateBreaksJson(parsed.data.defaultBreaks)) {
+    res.status(400).json({ error: "Default breaks are invalid" });
+    return;
+  }
   const slug = await uniqueSlugFromName(parsed.data.name);
   const [created] = await db
     .insert(clinicsTable)
@@ -78,6 +110,7 @@ router.post("/clinics", async (req, res): Promise<void> => {
       shiftStartTime: parsed.data.shiftStartTime ?? "09:00",
       shiftEndTime: parsed.data.shiftEndTime ?? "17:00",
       clinicAddress: parsed.data.clinicAddress,
+      defaultBreaks: parsed.data.defaultBreaks,
     })
     .returning();
   res.status(201).json(serializeClinic(created!));
@@ -104,6 +137,25 @@ router.patch("/clinics/me", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Shift end time must be after start time" });
     return;
   }
+  const overrideDate = parsed.data.overrideDate ?? existing.overrideDate;
+  if (overrideDate && !DATE_PATTERN.test(overrideDate)) {
+    res.status(400).json({ error: "Override date must be YYYY-MM-DD" });
+    return;
+  }
+  const overrideStart = parsed.data.overrideShiftStartTime ?? existing.overrideShiftStartTime;
+  const overrideEnd = parsed.data.overrideShiftEndTime ?? existing.overrideShiftEndTime;
+  if (!isValidTimeRange(overrideStart, overrideEnd)) {
+    res.status(400).json({ error: "Override end time must be after start time" });
+    return;
+  }
+  if (parsed.data.defaultBreaks !== undefined && !validateBreaksJson(parsed.data.defaultBreaks)) {
+    res.status(400).json({ error: "Default breaks are invalid" });
+    return;
+  }
+  if (parsed.data.overrideBreaks !== undefined && !validateBreaksJson(parsed.data.overrideBreaks)) {
+    res.status(400).json({ error: "Override breaks are invalid" });
+    return;
+  }
   const update: Partial<typeof clinicsTable.$inferInsert> = {};
   if (parsed.data.name !== undefined) update.name = parsed.data.name;
   if (parsed.data.doctorName !== undefined)
@@ -120,6 +172,16 @@ router.patch("/clinics/me", async (req, res): Promise<void> => {
     update.maxPatientsPerDay = parsed.data.maxPatientsPerDay;
   if (parsed.data.clinicAddress !== undefined)
     update.clinicAddress = parsed.data.clinicAddress;
+  if (parsed.data.defaultBreaks !== undefined)
+    update.defaultBreaks = parsed.data.defaultBreaks;
+  if (parsed.data.overrideDate !== undefined)
+    update.overrideDate = parsed.data.overrideDate;
+  if (parsed.data.overrideShiftStartTime !== undefined)
+    update.overrideShiftStartTime = parsed.data.overrideShiftStartTime;
+  if (parsed.data.overrideShiftEndTime !== undefined)
+    update.overrideShiftEndTime = parsed.data.overrideShiftEndTime;
+  if (parsed.data.overrideBreaks !== undefined)
+    update.overrideBreaks = parsed.data.overrideBreaks;
 
   const [updated] = await db
     .update(clinicsTable)

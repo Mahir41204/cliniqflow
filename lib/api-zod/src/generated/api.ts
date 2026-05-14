@@ -124,6 +124,24 @@ export const GetMyClinicResponse = zod.object({
         .describe("HH:MM format, e.g. 17:00"),
       maxPatientsPerDay: zod.number().optional(),
       clinicAddress: zod.string().nullish(),
+      defaultBreaks: zod
+        .string()
+        .nullish()
+        .describe(
+          'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+        ),
+      overrideDate: zod
+        .string()
+        .nullish()
+        .describe("YYYY-MM-DD date for one-day overrides"),
+      overrideShiftStartTime: zod.string().nullish(),
+      overrideShiftEndTime: zod.string().nullish(),
+      overrideBreaks: zod
+        .string()
+        .nullish()
+        .describe(
+          'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+        ),
     }),
     zod.null(),
   ]),
@@ -205,6 +223,24 @@ export const UpdateMyClinicBody = zod.object({
     .min(updateMyClinicBodyClinicAddressMin)
     .max(updateMyClinicBodyClinicAddressMax)
     .optional(),
+  defaultBreaks: zod
+    .string()
+    .optional()
+    .describe(
+      'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+    ),
+  overrideDate: zod
+    .string()
+    .optional()
+    .describe("YYYY-MM-DD date for one-day overrides"),
+  overrideShiftStartTime: zod.string().optional(),
+  overrideShiftEndTime: zod.string().optional(),
+  overrideBreaks: zod
+    .string()
+    .optional()
+    .describe(
+      'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+    ),
 });
 
 export const UpdateMyClinicResponse = zod.object({
@@ -221,6 +257,24 @@ export const UpdateMyClinicResponse = zod.object({
   shiftEndTime: zod.string().optional().describe("HH:MM format, e.g. 17:00"),
   maxPatientsPerDay: zod.number().optional(),
   clinicAddress: zod.string().nullish(),
+  defaultBreaks: zod
+    .string()
+    .nullish()
+    .describe(
+      'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+    ),
+  overrideDate: zod
+    .string()
+    .nullish()
+    .describe("YYYY-MM-DD date for one-day overrides"),
+  overrideShiftStartTime: zod.string().nullish(),
+  overrideShiftEndTime: zod.string().nullish(),
+  overrideBreaks: zod
+    .string()
+    .nullish()
+    .describe(
+      'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+    ),
 });
 
 /**
@@ -288,6 +342,12 @@ export const CreateMyClinicBody = zod.object({
     .min(createMyClinicBodyClinicAddressMin)
     .max(createMyClinicBodyClinicAddressMax)
     .optional(),
+  defaultBreaks: zod
+    .string()
+    .optional()
+    .describe(
+      'JSON string of breaks [{\"start\":\"HH:MM\",\"end\":\"HH:MM\"}, ...]',
+    ),
 });
 
 /**
@@ -383,6 +443,7 @@ export const AddPatientToQueueBody = zod.object({
     .min(addPatientToQueueBodyPhoneMin)
     .max(addPatientToQueueBodyPhoneMax)
     .regex(addPatientToQueueBodyPhoneRegExp),
+  allowOutsideShift: zod.boolean().optional(),
 });
 
 /**
@@ -394,7 +455,18 @@ export const CheckEligibilityResponse = zod.object({
   estimatedWaitMinutes: zod.number(),
   shiftEndTime: zod.string(),
   shiftStartTime: zod.string().optional(),
-  timeUntilShiftEnd: zod.number().describe("Minutes until doctor shift ends"),
+  timeUntilShiftEnd: zod.number(),
+  outsideShiftHours: zod.boolean(),
+  breakMinutesAdded: zod.number().optional(),
+  effectiveBreaks: zod
+    .array(
+      zod.object({
+        start: zod.string().optional(),
+        end: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Minutes until doctor shift ends"),
   reason: zod.string().nullish(),
 });
 

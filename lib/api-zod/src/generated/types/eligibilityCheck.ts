@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { EligibilityCheckEffectiveBreaksItem } from "./eligibilityCheckEffectiveBreaksItem";
 
 export interface EligibilityCheck {
   canGetAppointment: boolean;
@@ -12,8 +13,11 @@ export interface EligibilityCheck {
   estimatedWaitMinutes: number;
   shiftEndTime: string;
   shiftStartTime?: string;
-  /** Minutes until doctor shift ends */
   timeUntilShiftEnd: number;
+  outsideShiftHours: boolean;
+  breakMinutesAdded?: number;
+  /** Minutes until doctor shift ends */
+  effectiveBreaks?: EligibilityCheckEffectiveBreaksItem[];
   /** @nullable */
   reason?: string | null;
 }

@@ -11,12 +11,39 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Stethoscope, User, Clock, Phone, ArrowLeft, Settings as SettingsIcon, Save, Check } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const clinicNamePattern = /^[A-Za-z0-9][A-Za-z0-9\s.'&-]{1,79}$/;
 const doctorNamePattern = /^[A-Za-z][A-Za-z\s.'-]{1,79}$/;
 const phonePattern = /^\d{10,15}$/;
 const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+
+type BreakRange = { start: string; end: string };
+
+function parseBreaks(raw?: string | null): BreakRange[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as BreakRange[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((b) => typeof b?.start === "string" && typeof b?.end === "string")
+      .filter((b) => b.start < b.end);
+  } catch {
+    return [];
+  }
+}
+
+function serializeBreaks(breaks: BreakRange[]): string {
+  if (!breaks.length) return "";
+  return JSON.stringify(breaks);
+}
+
+function isValidBreaksJson(raw?: string): boolean {
+  if (!raw) return true;
+  const parsed = parseBreaks(raw);
+  return parsed.length === 0 ? raw.trim() === "" : true;
+}
 
 function isValidTimeRange(start?: string, end?: string): boolean {
   if (!start || !end) return true;
@@ -46,11 +73,87 @@ const updateSchema = z
     shiftEndTime: z.string().regex(timePattern, "Use HH:MM (24-hour)").optional(),
     maxPatientsPerDay: z.coerce.number().int().min(1).max(500).optional(),
     clinicAddress: z.string().trim().min(5, "Address is too short").max(200, "Address is too long").optional().or(z.literal("")),
+    defaultBreaks: z.string().optional(),
+    overrideDate: z.string().regex(datePattern, "Use YYYY-MM-DD").optional().or(z.literal("")),
+    overrideShiftStartTime: z.string().regex(timePattern, "Use HH:MM (24-hour)").optional().or(z.literal("")),
+    overrideShiftEndTime: z.string().regex(timePattern, "Use HH:MM (24-hour)").optional().or(z.literal("")),
+    overrideBreaks: z.string().optional(),
   })
   .refine(
     (data) => isValidTimeRange(data.shiftStartTime, data.shiftEndTime),
     { message: "Shift end must be after start", path: ["shiftEndTime"] },
+  )
+  .refine(
+    (data) => isValidTimeRange(data.overrideShiftStartTime || undefined, data.overrideShiftEndTime || undefined),
+    { message: "Override end must be after start", path: ["overrideShiftEndTime"] },
+  )
+  .refine((data) => isValidBreaksJson(data.defaultBreaks), {
+    message: "Default breaks are invalid",
+    path: ["defaultBreaks"],
+  })
+  .refine((data) => isValidBreaksJson(data.overrideBreaks), {
+    message: "Override breaks are invalid",
+    path: ["overrideBreaks"],
+  });
+
+function BreaksEditor({
+  title,
+  breaks,
+  onChange,
+}: {
+  title: string;
+  breaks: BreakRange[];
+  onChange: (next: BreakRange[]) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="text-sm font-medium text-foreground">{title}</div>
+      <div className="space-y-2">
+        {breaks.map((b, idx) => (
+          <div key={`${b.start}-${b.end}-${idx}`} className="flex items-center gap-2">
+            <Input
+              type="time"
+              className="h-11 bg-muted/30 rounded-xl"
+              value={b.start}
+              onChange={(event) => {
+                const next = [...breaks];
+                next[idx] = { ...b, start: event.target.value };
+                onChange(next);
+              }}
+            />
+            <span className="text-muted-foreground text-sm">to</span>
+            <Input
+              type="time"
+              className="h-11 bg-muted/30 rounded-xl"
+              value={b.end}
+              onChange={(event) => {
+                const next = [...breaks];
+                next[idx] = { ...b, end: event.target.value };
+                onChange(next);
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 px-2 text-destructive"
+              onClick={() => onChange(breaks.filter((_, i) => i !== idx))}
+            >
+              Remove
+            </Button>
+          </div>
+        ))}
+      </div>
+      <Button
+        type="button"
+        variant="secondary"
+        className="h-10 rounded-xl"
+        onClick={() => onChange([...breaks, { start: "", end: "" }])}
+      >
+        Add break
+      </Button>
+    </div>
   );
+}
 
 export default function Settings() {
   const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
@@ -76,8 +179,24 @@ export default function Settings() {
       shiftEndTime: "17:00",
       maxPatientsPerDay: 50,
       clinicAddress: "",
+      defaultBreaks: "",
+      overrideDate: "",
+      overrideShiftStartTime: "",
+      overrideShiftEndTime: "",
+      overrideBreaks: "",
     },
   });
+
+  const [defaultBreaks, setDefaultBreaks] = useState<BreakRange[]>([]);
+  const [overrideBreaks, setOverrideBreaks] = useState<BreakRange[]>([]);
+
+  useEffect(() => {
+    form.setValue("defaultBreaks", serializeBreaks(defaultBreaks));
+  }, [defaultBreaks, form]);
+
+  useEffect(() => {
+    form.setValue("overrideBreaks", serializeBreaks(overrideBreaks));
+  }, [overrideBreaks, form]);
 
   useEffect(() => {
     if (clinic) {
@@ -90,7 +209,14 @@ export default function Settings() {
         shiftEndTime: clinic.shiftEndTime ?? "17:00",
         maxPatientsPerDay: clinic.maxPatientsPerDay ?? 50,
         clinicAddress: clinic.clinicAddress ?? "",
+        defaultBreaks: clinic.defaultBreaks ?? "",
+        overrideDate: clinic.overrideDate ?? "",
+        overrideShiftStartTime: clinic.overrideShiftStartTime ?? "",
+        overrideShiftEndTime: clinic.overrideShiftEndTime ?? "",
+        overrideBreaks: clinic.overrideBreaks ?? "",
       });
+      setDefaultBreaks(parseBreaks(clinic.defaultBreaks));
+      setOverrideBreaks(parseBreaks(clinic.overrideBreaks));
     }
   }, [clinic, form]);
 
@@ -100,7 +226,15 @@ export default function Settings() {
 
   async function onSubmit(values: z.infer<typeof updateSchema>) {
     try {
-      await updateClinic.mutateAsync({ data: values });
+      const payload = {
+        ...values,
+        defaultBreaks: serializeBreaks(defaultBreaks),
+        overrideBreaks: serializeBreaks(overrideBreaks),
+        overrideDate: values.overrideDate || undefined,
+        overrideShiftStartTime: values.overrideShiftStartTime || undefined,
+        overrideShiftEndTime: values.overrideShiftEndTime || undefined,
+      };
+      await updateClinic.mutateAsync({ data: payload });
       queryClient.invalidateQueries({ queryKey: getGetMyClinicQueryKey() });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -249,6 +383,8 @@ export default function Settings() {
                 />
               </div>
 
+              <BreaksEditor title="Default breaks (repeat daily)" breaks={defaultBreaks} onChange={setDefaultBreaks} />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
@@ -280,6 +416,55 @@ export default function Settings() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="rounded-2xl border border-border/60 bg-muted/20 p-5 space-y-4">
+                <div className="text-sm font-semibold text-foreground">Today's schedule override</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="overrideDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="overrideShiftStartTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Start</FormLabel>
+                        <FormControl>
+                          <Input type="time" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="overrideShiftEndTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">End</FormLabel>
+                        <FormControl>
+                          <Input type="time" className="h-12 bg-muted/30 rounded-xl" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <BreaksEditor title="Today's breaks" breaks={overrideBreaks} onChange={setOverrideBreaks} />
+                <div className="text-xs text-muted-foreground">
+                  Leave date empty to use default schedule. Overrides apply only for the selected day.
+                </div>
               </div>
 
               <div className="pt-4 flex justify-end">

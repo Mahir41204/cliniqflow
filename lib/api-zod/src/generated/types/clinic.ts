@@ -22,4 +22,23 @@ export interface Clinic {
   maxPatientsPerDay?: number;
   /** @nullable */
   clinicAddress?: string | null;
+  /**
+   * JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...]
+   * @nullable
+   */
+  defaultBreaks?: string | null;
+  /**
+   * YYYY-MM-DD date for one-day overrides
+   * @nullable
+   */
+  overrideDate?: string | null;
+  /** @nullable */
+  overrideShiftStartTime?: string | null;
+  /** @nullable */
+  overrideShiftEndTime?: string | null;
+  /**
+   * JSON string of breaks [{"start":"HH:MM","end":"HH:MM"}, ...]
+   * @nullable
+   */
+  overrideBreaks?: string | null;
 }
