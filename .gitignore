@@ -71,3 +71,5 @@ tmp/
 
 *.md
 test-smtp.mjs
+
+*.pem

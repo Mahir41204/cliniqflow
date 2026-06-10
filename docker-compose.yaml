@@ -1,0 +1,21 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgresql://clinic:clinic123@postgres:5432/clinic_db
+
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=clinic
+      - POSTGRES_PASSWORD=clinic123
+      - POSTGRES_DB=clinic_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    
+volumes:
+  postgres_data:
+  
