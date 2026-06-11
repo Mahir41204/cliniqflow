@@ -73,3 +73,6 @@ tmp/
 test-smtp.mjs
 
 *.pem
+
+github-actions-deploy
+github-actions-deploy.pub

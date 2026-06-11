@@ -1,10 +1,11 @@
 services:
   api:
-    build: .
+    image: ghcr.io/Mahir41204/cliniqflow-api:latest
     ports:
       - "8080:8080"
     environment:
       - DATABASE_URL=postgresql://clinic:clinic123@postgres:5432/clinic_db
+      - FRONTEND_URL=https://cliniqflow.pages.dev
 
   postgres:
     image: postgres:17
