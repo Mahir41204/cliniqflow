@@ -71,7 +71,9 @@ pnpm test
 ## Production notes
 
 - Set `NODE_ENV=production`.
-- Set `FRONTEND_URL` to your deployed frontend origin.
+- Set `FRONTEND_URL` to your deployed Cloudflare Pages origin.
+- Set `VITE_API_BASE_URL` on the frontend build to your EC2 backend origin.
+- If you use the optional Cloudflare Pages API proxy, set `BACKEND_BASE_URL` to the EC2 backend origin as well.
 - Set `COOKIE_SECURE=true` behind HTTPS.
 - Set `SESSION_SECRET` to a long random value in production.
 - Put the API behind a reverse proxy such as nginx, Caddy, or your cloud provider’s ingress.

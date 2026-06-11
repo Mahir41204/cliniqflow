@@ -1,10 +1,13 @@
 export async function onRequest(context: any) {
   const request = context.request;
+  const env = context.env ?? {};
   const url = new URL(request.url);
-  
-  // The actual URL of your Render backend
-  const backendBase = "https://cliniqflow.onrender.com";
-  
+
+  const backendBase =
+    env.BACKEND_BASE_URL ||
+    env.VITE_API_BASE_URL ||
+    "http://localhost:8080";
+
   // Create the destination URL. 
   // context.request.url contains the full original URL, e.g., https://cliniqflow.pages.dev/api/auth/user
   // url.pathname is exactly "/api/auth/user"
