@@ -1,6 +1,6 @@
 services:
   api:
-    build: .
+    image: ghcr.io/mahir41204/cliniqflow-api:latest
     ports:
       - "8080:8080"
     environment:
