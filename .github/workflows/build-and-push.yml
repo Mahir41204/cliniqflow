@@ -28,4 +28,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/cliniqflow-api:latest
+          tags: ghcr.io/mahir41204/cliniqflow-api:latest
