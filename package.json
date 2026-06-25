@@ -1,6 +1,7 @@
 {
   "name": "workspace",
   "version": "0.0.0",
+  "packageManager": "pnpm@11.0.9",
   "license": "MIT",
   "scripts": {
     "build": "pnpm run typecheck && pnpm -r --filter \"./artifacts/api-server\" --filter \"./artifacts/clinic-queue\" --filter \"./scripts\" --if-present run build",

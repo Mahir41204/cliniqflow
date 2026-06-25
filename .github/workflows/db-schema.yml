@@ -1,0 +1,25 @@
+name: Database Schema Sync
+
+on:
+    workflow_dispatch:
+
+jobs:
+    database-schema:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            
+            - uses: actions/setup-node@v4
+              with: 
+                node-version: 22
+            
+            - uses: pnpm/action-setup@v4
+              with:
+                version: 11.0.9
+            
+            - run: pnpm install
+            
+            - run: pnpm push
+              working-directory: lib/db
+              env:
+                DATABASE_URL: ${{secrets.DATABASE_URL}}
