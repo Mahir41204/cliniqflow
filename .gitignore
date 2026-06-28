@@ -18,6 +18,17 @@ out/
 .svelte-kit/
 .vercel/
 
+# local app build artifacts
+.vite/
+.turbo/
+.eslintcache
+coverage/
+artifacts/**/dist/
+artifacts/**/build/
+artifacts/**/coverage/
+artifacts/**/.vite/
+artifacts/**/.turbo/
+
 # TypeScript
 *.tsbuildinfo
 out-tsc/
@@ -76,3 +87,10 @@ test-smtp.mjs
 
 github-actions-deploy
 github-actions-deploy.pub
+
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
