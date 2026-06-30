@@ -66,3 +66,10 @@ USER appuser
 WORKDIR /app/artifacts/api-server
 EXPOSE 3000
 CMD ["node", "dist/index.mjs"]
+
+# ────────────────────────────────────────────────────────────
+FROM builder AS migrator
+
+WORKDIR /app/lib/db
+
+CMD ["pnpm", "run", "migrate"]

@@ -1,4 +1,29 @@
 services:
+  postgres:
+    image: postgres:17
+    environment:
+      - POSTGRES_USER=clinic
+      - POSTGRES_PASSWORD=clinic123
+      - POSTGRES_DB=clinic_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:                                    # ← add this
+      test: ["CMD-SHELL", "pg_isready -U clinic -d clinic_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrator:                                         # ← add this service
+    image: cliniqflow-migrator:test
+    environment:
+      - DATABASE_URL=postgresql://clinic:clinic123@postgres:5432/clinic_db?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy                  # waits until postgres is ready
+    restart: "no"
+
   api:
     image: ghcr.io/mahir41204/cliniqflow-api:latest
     ports:
@@ -6,17 +31,9 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - FRONTEND_URL=${FRONTEND_URL}
+    depends_on:
+      migrator:
+        condition: service_completed_successfully   # api only starts after migrations pass
 
-#   postgres:
-#     image: postgres:17
-#     environment:
-#       - POSTGRES_USER=clinic
-#       - POSTGRES_PASSWORD=clinic123
-#       - POSTGRES_DB=clinic_db
-#     volumes:
-#       - postgres_data:/var/lib/postgresql/data
-
-    
-# volumes:
-#   postgres_data:
-  
+volumes:
+  postgres_data:

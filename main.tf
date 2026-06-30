@@ -178,16 +178,14 @@ resource "aws_eks_node_group" "main" {
 }
 
 resource "aws_security_group" "rds" {
-  name = "project1-rds-sg"
-  
+  name   = "project1-rds-sg"
   vpc_id = aws_vpc.main.id
 
   ingress {
-    description = "PostgreSQL from VPC"
-    from_port  = 5432
-    to_port    = 5432
-    protocol   = "tcp"
-    cidr_blocks = [aws_vpc.main.cidr_block]
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_eks_cluster.main.vpc_config[0].cluster_security_group_id]
   }
 
   egress {
@@ -196,71 +194,61 @@ resource "aws_security_group" "rds" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  tags = { Name = "project1-rds-sg" } 
 }
 
 resource "aws_db_subnet_group" "main" {
   name       = "project1-db-subnet-group"
   subnet_ids = aws_subnet.private[*].id
-
-  tags = { Name = "project1-db-subnet-group" }
-}
-
-resource "random_password" "db" {
-  length           = 24
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}:?"
 }
 
 resource "aws_db_instance" "main" {
-  identifier           = "project1-postgres"
-  engine               = "postgres"
-  engine_version       = "18.3"
-  instance_class       = "db.t4g.micro"
-  allocated_storage    = 20
-  storage_type         = "gp3"
-  storage_encrypted    = true
+  identifier        = "project1-cliniqflow-db"
+  engine            = "postgres"
+  engine_version    = "17"
+  instance_class    = "db.t3.micro"
+  allocated_storage = 20
+  storage_encrypted = true
 
-  db_name  = "appdb"
-  username = "appuser"
-  password = random_password.db.result
+  db_name  = "cliniqflow"
+  username = "cliniqflow_admin"
+
+  manage_master_user_password = true
 
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
 
-  skip_final_snapshot    = true
-  deletion_protection    = false
-  backup_retention_period = 0
-  backup_window          = "03:00-04:00"
-  maintenance_window     = "Mon:04:00-Mon:05:00"
-
-  tags = { Name = "project1-postgres" }
+  publicly_accessible = false
+  skip_final_snapshot  = true
+  deletion_protection  = false
+  auto_minor_version_upgrade = true
 }
 
-output "db_endpoint" {
-  value       = aws_db_instance.main.endpoint
-  description = "RDS endpoint (host:port)"
+output "rds_address" {
+  value = aws_db_instance.main.address
 }
 
-output "db_name" {
-  value = aws_db_instance.main.db_name
+output "rds_port" {
+  value = aws_db_instance.main.port
 }
 
-output "db_username" {
-  value = aws_db_instance.main.username
+output "rds_secret_arn" {
+  value = aws_db_instance.main.master_user_secret[0].secret_arn
 }
 
-resource "aws_secretsmanager_secret" "db_url" {
-  name                    = "project1/db-url"
-  description             = "PostgreSQL connection URL for project1 app"
-  recovery_window_in_days = 0
+resource "aws_ecr_repository" "api" {
+  name                 = "cliniqflow-api"
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
 
-resource "aws_secretsmanager_secret_version" "db_url" {
-  secret_id = aws_secretsmanager_secret.db_url.id
+resource "aws_ecr_repository" "migrator" {
+  name                 = "cliniqflow-migrator"
+  image_tag_mutability = "IMMUTABLE"
 
-  secret_string = jsonencode({
-    DATABASE_URL = "postgresql://${aws_db_instance.main.username}:${random_password.db.result}@${aws_db_instance.main.endpoint}/${aws_db_instance.main.db_name}?sslmode=require"
-  })
+  image_scanning_configuration {
+    scan_on_push = true
+  }
 }
