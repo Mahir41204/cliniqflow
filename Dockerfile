@@ -72,4 +72,4 @@ FROM builder AS migrator
 
 WORKDIR /app/lib/db
 
-CMD ["pnpm", "run", "migrate"]
+CMD ["pnpm", "run", "push-force"]
