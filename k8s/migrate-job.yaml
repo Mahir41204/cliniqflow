@@ -13,3 +13,6 @@ spec:
           envFrom:
             - secretRef:
                 name: db-credentials
+          env:
+            - name: NODE_TLS_REJECT_UNAUTHORIZED
+              value: "0"
