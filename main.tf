@@ -204,8 +204,8 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "main" {
   identifier        = "project1-cliniqflow-db"
   engine            = "postgres"
-  engine_version    = "17"
-  instance_class    = "db.t3.micro"
+  engine_version    = "18.3"
+  instance_class    = "db.t4g.micro"
   allocated_storage = 20
   storage_encrypted = true
 

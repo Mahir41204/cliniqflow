@@ -1,14 +1,12 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cliniqflow-api
-  labels:
-    app: cliniqflow-api
+  name: {{ .Release.Name }}
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: cliniqflow-api
+      app: {{ .Release.Name }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -17,41 +15,34 @@ spec:
   template:
     metadata:
       labels:
-        app: cliniqflow-api
+        app: {{ .Release.Name }}
     spec:
       containers:
-        - name: cliniqflow-api
-          image: 178647846686.dkr.ecr.ap-south-1.amazonaws.com/cliniqflow-api
+        - name: {{ .Release.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           ports:
-            - containerPort: 8080
+            - containerPort: {{ .Values.service.targetPort }}
           env:
             - name: NODE_ENV
               value: "production"
             - name: PORT
-              value: "8080"
+              value: "{{ .Values.service.targetPort }}"
             - name: FRONTEND_URL
-              value: "https://cliniqflow.pages.dev"
+              value: {{ .Values.frontendUrl | quote }}
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: db-credentials
+                  name: {{ .Values.database.secretName }}
                   key: DATABASE_URL
           resources:
-            requests:
-              cpu: "100m"
-              memory: "128Mi"
-            limits:
-              cpu: "500m"
-              memory: "256Mi"
+            {{- toYaml .Values.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /api/readyz
-              port: 8080
+              port: {{ .Values.service.targetPort }}
             initialDelaySeconds: 5
-            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/healthz
-              port: 8080
+              port: {{ .Values.service.targetPort }}
             initialDelaySeconds: 15
-            periodSeconds: 20

@@ -1,0 +1,22 @@
+replicaCount: 2
+
+image:
+  repository: 178647846686.dkr.ecr.ap-south-1.amazonaws.com/cliniqflow-api
+  tag: latest
+
+service:
+  port: 80
+  targetPort: 8080
+
+database:
+  secretName: db-credentials
+
+frontendUrl: "https://cliniqflow.pages.dev"
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "256Mi"
