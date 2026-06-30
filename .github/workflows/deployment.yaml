@@ -1,0 +1,71 @@
+name: Deploy to EKS
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-south-1
+  EKS_CLUSTER_NAME: project1-cluster
+  API_REPOSITORY: cliniqflow-api
+  MIGRATOR_REPOSITORY: cliniqflow-migrator
+
+jobs:
+  build-migrate-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::178647846686:role/github-actions-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build --target runtime -t $ECR_REGISTRY/$API_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$API_REPOSITORY:$IMAGE_TAG
+
+      - name: Build and push migrator image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build --target migrator -t $ECR_REGISTRY/$MIGRATOR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$MIGRATOR_REPOSITORY:$IMAGE_TAG
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Run database migration
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          sed "s|MIGRATOR_IMAGE_PLACEHOLDER|$ECR_REGISTRY/$MIGRATOR_REPOSITORY:$IMAGE_TAG|" k8s/migrate-job.yaml > /tmp/migrate-job.yaml
+          kubectl delete job db-migrate --ignore-not-found=true
+          kubectl apply -f /tmp/migrate-job.yaml
+          kubectl wait --for=condition=complete --timeout=180s job/db-migrate
+
+      - name: Deploy with Helm
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          helm upgrade --install cliniqflow-api ./helm/cliniqflow-api \
+            --set image.repository=$ECR_REGISTRY/$API_REPOSITORY \
+            --set image.tag=$IMAGE_TAG \
+            --wait --timeout 5m

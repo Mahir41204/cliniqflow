@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: MIGRATOR_IMAGE_PLACEHOLDER
+          envFrom:
+            - secretRef:
+                name: db-credentials
