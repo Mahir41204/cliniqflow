@@ -17,29 +17,6 @@ COPY . .
 WORKDIR /app/artifacts/api-server
 RUN pnpm build
 
-
-# ── Stage 2: migrate ──────────────────────────────────────────────────────────
-FROM node:22 AS migrate
-
-WORKDIR /app
-
-COPY package.json .
-COPY pnpm-lock.yaml .
-COPY pnpm-workspace.yaml .
-COPY artifacts/api-server/package.json artifacts/api-server/
-COPY lib/db/package.json lib/db/
-COPY lib/api-zod/package.json lib/api-zod/
-
-# full install — keeps devDependencies so drizzle-kit is available
-RUN corepack enable && pnpm install
-
-# copy only the db package source (schema, migrations, drizzle.config.ts)
-COPY lib/db ./lib/db
-
-WORKDIR /app/lib/db
-CMD ["pnpm", "drizzle-kit", "migrate"]
-
-
 # ── Stage 3: runtime ──────────────────────────────────────────────────────────
 FROM node:22-slim AS runtime
 
