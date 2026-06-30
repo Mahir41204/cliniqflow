@@ -1,4 +1,5 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter } from "express";
+/*
 import crypto from "crypto";
 import { eq } from "drizzle-orm";
 import { db, patientsTable } from "@workspace/db";
@@ -185,5 +186,12 @@ router.post("/whatsapp", async (req: Request, res: Response): Promise<void> => {
     logger.error({ err }, "Failed to process WhatsApp webhook");
   }
 });
+
+export default router;
+*/
+
+// Twilio/WhatsApp webhook implementation disabled. Original code is kept above
+// in comments so it can be restored later.
+const router: IRouter = Router();
 
 export default router;

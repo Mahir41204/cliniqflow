@@ -8,6 +8,8 @@ import { db, clinicsTable, patientsTable, type Clinic } from "@workspace/db";
 // Twilio send (freeform text only — no ContentSid / templates)
 // ---------------------------------------------------------------------------
 
+// Twilio send implementation disabled. Kept commented so it can be restored later.
+/*
 async function sendViaTwilio(to: string, body: string): Promise<boolean> {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
@@ -43,6 +45,7 @@ async function sendViaTwilio(to: string, body: string): Promise<boolean> {
   }
   return true;
 }
+*/
 
 // ---------------------------------------------------------------------------
 // Public send entry-point
@@ -52,13 +55,17 @@ export async function sendWhatsAppMessage(
   recipientPhone: string,
   message: string,
 ): Promise<boolean> {
-  const to = normalizePhone(recipientPhone);
-  try {
-    return await sendViaTwilio(to, message);
-  } catch (err) {
-    logger.error({ err }, "sendWhatsAppMessage threw");
-    return false;
-  }
+  // WhatsApp/Twilio sending disabled. Kept previous implementation commented.
+  void recipientPhone;
+  void message;
+  return false;
+  // const to = normalizePhone(recipientPhone);
+  // try {
+  //   return await sendViaTwilio(to, message);
+  // } catch (err) {
+  //   logger.error({ err }, "sendWhatsAppMessage threw");
+  //   return false;
+  // }
 }
 
 // ---------------------------------------------------------------------------
@@ -262,35 +269,38 @@ export function buildThankYouMessage(
 // ---------------------------------------------------------------------------
 
 export async function notifyNearbyPatientsOnChange(clinicId: string): Promise<void> {
-  try {
-    const clinic = await db.query.clinicsTable.findFirst({
-      where: (c, { eq }) => eq(c.id, clinicId),
-    });
-    if (!clinic) return;
-
-    const queue = await buildSerializedQueue(clinicId, clinic.avgConsultationMinutes);
-    const toNotify = queue.filter((p) =>
-      ["three_away", "two_away", "one_away", "your_turn"].includes(p.reminderStage),
-    );
-
-    await Promise.all(
-      toNotify.map(async (p) => {
-        if (!p.phone) return;
-
-        const canSend = await shouldSendNotification(p.id, p.reminderStage);
-        if (!canSend) return;
-
-        const text = buildNotificationMessage(clinic, p);
-        if (!text) return;
-
-        const success = await sendWhatsAppMessage(p.phone, text).catch(() => false);
-
-        if (success) {
-          await trackNotificationSent(p.id, p.reminderStage);
-        }
-      }),
-    );
-  } catch (err) {
-    logger.error({ err }, "notifyNearbyPatientsOnChange failed");
-  }
+  // WhatsApp/Twilio batch notifications disabled. Kept previous implementation commented.
+  void clinicId;
+  return;
+  // try {
+  //   const clinic = await db.query.clinicsTable.findFirst({
+  //     where: (c, { eq }) => eq(c.id, clinicId),
+  //   });
+  //   if (!clinic) return;
+  //
+  //   const queue = await buildSerializedQueue(clinicId, clinic.avgConsultationMinutes);
+  //   const toNotify = queue.filter((p) =>
+  //     ["three_away", "two_away", "one_away", "your_turn"].includes(p.reminderStage),
+  //   );
+  //
+  //   await Promise.all(
+  //     toNotify.map(async (p) => {
+  //       if (!p.phone) return;
+  //
+  //       const canSend = await shouldSendNotification(p.id, p.reminderStage);
+  //       if (!canSend) return;
+  //
+  //       const text = buildNotificationMessage(clinic, p);
+  //       if (!text) return;
+  //
+  //       const success = await sendWhatsAppMessage(p.phone, text).catch(() => false);
+  //
+  //       if (success) {
+  //         await trackNotificationSent(p.id, p.reminderStage);
+  //       }
+  //     }),
+  //   );
+  // } catch (err) {
+  //   logger.error({ err }, "notifyNearbyPatientsOnChange failed");
+  // }
 }

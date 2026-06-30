@@ -263,10 +263,22 @@ export default function Landing() {
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-primary via-emerald-500 to-amber-500" />
           <CardHeader className="space-y-2 pb-4 pt-8">
             <CardTitle className="font-heading text-2xl">Get started</CardTitle>
-            <CardDescription className="text-base">Log in or create a clinic owner account.</CardDescription>
+            <CardDescription className="text-base">Log in or create a clinic owner account with Google.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5 pb-8">
-            {otpMode ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="h-12 w-full rounded-xl border-border/60 bg-card shadow-sm hover:bg-muted/30"
+              onClick={handleGoogleAuth}
+            >
+              <Globe className="mr-2 h-4 w-4" />
+              {googleCta}
+            </Button>
+
+            {/* Manual email/password auth and Brevo OTP UI disabled. Kept commented so it can be restored later. */}
+            {false && (otpMode ? (
               <Form {...otpForm}>
                 <form className="mt-3 space-y-4" onSubmit={onVerifyOtp}>
                   <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 text-sm text-foreground/80">
@@ -425,10 +437,10 @@ export default function Landing() {
                   </form>
                 </Form>
               </Tabs>
-            )}
+            ))}
 
             <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 text-sm text-muted-foreground leading-relaxed">
-              Accounts are local to your database. Register once, then use the same credentials on any device pointing to this app.
+              Use your Google account to access the clinic queue.
             </div>
           </CardContent>
         </Card>

@@ -1,3 +1,4 @@
+/*
 import { logger } from "./logger";
 // @ts-ignore - Ignore missing types for nodemailer
 import nodemailer from "nodemailer";
@@ -118,4 +119,13 @@ export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
     logger.error({ err, message: (err as Error).message, to }, "Brevo SMTP sending threw");
     return false;
   }
+}
+*/
+
+// Brevo email implementation disabled. Original code is kept above in comments
+// so it can be restored later.
+export async function sendOtpEmail(to: string, otp: string): Promise<boolean> {
+  void to;
+  void otp;
+  return false;
 }

@@ -65,6 +65,8 @@ const updateSchema = z
       .max(80, "Doctor name is too long")
       .regex(doctorNamePattern, "Use letters, spaces, and .'- only"),
     avgConsultationMinutes: z.coerce.number().int().min(1).max(120),
+    // Former WhatsApp number field kept as a plain clinic contact number because
+    // the current API/database contract still requires this value.
     whatsappNumber: z
       .string()
       .trim()
@@ -312,7 +314,7 @@ export default function Settings() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-semibold flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-primary/60" /> WhatsApp Number
+                        <Phone className="w-4 h-4 text-primary/60" /> Clinic Phone Number
                       </FormLabel>
                       <FormControl>
                         <Input

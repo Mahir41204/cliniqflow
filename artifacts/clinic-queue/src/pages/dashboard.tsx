@@ -1,4 +1,4 @@
-import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, useCheckEligibility, useReorderQueue, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey } from "@workspace/api-client-react";
+import { useGetMyClinic, useGetMyClinicStats, useListMyQueue, useGetMyClinicHistory, useAddPatientToQueue, useAdvanceQueue, useRemovePatient, useSkipPatient, useCheckEligibility, useReorderQueue, getGetMyClinicQueryKey, getGetMyClinicStatsQueryKey, getListMyQueueQueryKey, getGetMyClinicHistoryQueryKey, getCheckEligibilityQueryKey } from "@workspace/api-client-react";
 import type { Patient } from "@workspace/api-client-react";
 import { useAuth } from "@workspace/auth-web";
 import { Redirect, Link } from "wouter";
@@ -77,7 +77,7 @@ export default function Dashboard() {
   const clinic = clinicData?.clinic;
 
   const { data: eligibility } = useCheckEligibility({
-    query: { enabled: !!clinic, refetchInterval: 10000 }
+    query: { enabled: !!clinic, refetchInterval: 10000, queryKey: getCheckEligibilityQueryKey() }
   });
 
   const statsQuery = useGetMyClinicStats({ 
@@ -311,8 +311,9 @@ export default function Dashboard() {
 
   const currentlyServing = queue.find(p => p.status === "in_progress");
   
-  const cleanPhone = clinic.whatsappNumber.replace(/\D/g, '');
-  const waUrl = `https://wa.me/${cleanPhone}?text=Hi`;
+  // WhatsApp registration link disabled. Kept commented so it can be restored later.
+  // const cleanPhone = clinic.whatsappNumber.replace(/\D/g, '');
+  // const waUrl = `https://wa.me/${cleanPhone}?text=Hi`;
 
   return (
     <div className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6 lg:p-8 animate-fade-up-in">
@@ -374,7 +375,7 @@ export default function Dashboard() {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>WhatsApp Number *</FormLabel>
+                          <FormLabel>Phone Number *</FormLabel>
                           <FormControl>
                             <Input
                               placeholder="919876543210"
@@ -624,7 +625,7 @@ export default function Dashboard() {
                     <CheckCircle2 className="h-6 w-6 text-emerald-500/50" />
                   </div>
                   <p className="text-muted-foreground font-medium">Queue is empty</p>
-                  <p className="text-xs text-muted-foreground/60 mt-1">Add a patient or share the join link.</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">Add a patient to begin.</p>
                 </div>
               )}
             </ScrollArea>
@@ -633,7 +634,8 @@ export default function Dashboard() {
 
         {/* Sidebar Column */}
         <div className="flex flex-col gap-6">
-          {/* QR / Links */}
+          {/* WhatsApp registration QR/link UI disabled. Kept commented so it can be restored later. */}
+          {/*
           <Card className="shadow-botanical overflow-hidden">
             <CardHeader className="pb-3">
               <CardTitle className="font-heading text-lg flex items-center gap-2">
@@ -659,6 +661,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          */}
 
           {/* History */}
           <Card className="shadow-botanical overflow-hidden">

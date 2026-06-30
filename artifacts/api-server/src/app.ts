@@ -4,7 +4,8 @@ import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import helmet from "helmet";
 import router from "./routes/index.js";
-import webhookRouter from "./routes/webhook.js";
+// Twilio/WhatsApp webhook implementation disabled. Kept commented so it can be restored later.
+// import webhookRouter from "./routes/webhook.js";
 import { logger } from "./lib/logger.js";
 import { authMiddleware } from "./middlewares/authMiddleware.js";
 import { apiLimiter } from "./middlewares/security.js";
@@ -49,11 +50,12 @@ app.use(cookieParser(process.env.SESSION_SECRET || undefined));
 // Twilio sends application/x-www-form-urlencoded; we need the raw body for
 // HMAC-SHA1 signature validation, so we parse it as urlencoded here.
 // ---------------------------------------------------------------------------
-app.use(
-  "/webhooks",
-  express.urlencoded({ extended: false }),
-  webhookRouter,
-);
+// Twilio/WhatsApp webhook mount disabled. Kept commented so it can be restored later.
+// app.use(
+//   "/webhooks",
+//   express.urlencoded({ extended: false }),
+//   webhookRouter,
+// );
 
 // ---------------------------------------------------------------------------
 // /api — standard JSON API with rate-limiting and auth

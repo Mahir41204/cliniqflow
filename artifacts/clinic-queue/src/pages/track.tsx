@@ -53,7 +53,7 @@ export default function Track() {
   const { trackingCode } = useParams<{ trackingCode: string }>();
   const { data: tracking, isLoading, error, refetch, isFetching } = useGetPublicTracking(
     trackingCode!, 
-    { query: { enabled: !!trackingCode, refetchInterval: 5000 } }
+    { query: { queryKey: ["public-tracking", trackingCode], enabled: !!trackingCode, refetchInterval: 5000 } }
   );
 
   const [timeElapsed, setTimeElapsed] = useState(0);

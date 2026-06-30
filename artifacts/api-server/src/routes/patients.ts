@@ -17,15 +17,16 @@ import {
   serialize,
 } from "../lib/queue";
 import { checkAppointmentEligibility } from "../lib/eligibility";
-import {
-  sendWhatsAppMessage,
-  notifyNearbyPatientsOnChange,
-  buildConfirmationMessage,
-  trackNotificationSent,
-  buildNotificationMessage,
-  buildThankYouMessage,
-  shouldSendNotification,
-} from "../lib/notifications";
+// WhatsApp/Twilio notification implementation disabled. Kept commented so it can be restored later.
+// import {
+//   sendWhatsAppMessage,
+//   notifyNearbyPatientsOnChange,
+//   buildConfirmationMessage,
+//   trackNotificationSent,
+//   buildNotificationMessage,
+//   buildThankYouMessage,
+//   shouldSendNotification,
+// } from "../lib/notifications";
 
 const router: IRouter = Router();
 
@@ -112,23 +113,24 @@ router.post("/patients", async (req, res): Promise<void> => {
   const position = fresh?.position ?? queue.length - 1;
   const estimatedWaitMinutes = fresh?.estimatedWaitMinutes ?? position * clinic.avgConsultationMinutes;
   
-  const msg = buildConfirmationMessage(
-    clinic,
-    parsed.data.name,
-    tokenNumber,
-    estimatedWaitMinutes,
-    position,
-    row!.trackingCode
-  );
-
-  // confirmation to manually added patient
-  void sendWhatsAppMessage(parsed.data.phone, msg)
-    .then((success) => {
-      if (success) void trackNotificationSent(row!.id, "confirmation");
-    })
-    .catch(() => undefined);
-  // notify nearby patients asynchronously
-  void notifyNearbyPatientsOnChange(clinic.id);
+  // WhatsApp/Twilio confirmation disabled. Kept commented so it can be restored later.
+  // const msg = buildConfirmationMessage(
+  //   clinic,
+  //   parsed.data.name,
+  //   tokenNumber,
+  //   estimatedWaitMinutes,
+  //   position,
+  //   row!.trackingCode
+  // );
+  //
+  // // confirmation to manually added patient
+  // void sendWhatsAppMessage(parsed.data.phone, msg)
+  //   .then((success) => {
+  //     if (success) void trackNotificationSent(row!.id, "confirmation");
+  //   })
+  //   .catch(() => undefined);
+  // // notify nearby patients asynchronously
+  // void notifyNearbyPatientsOnChange(clinic.id);
   res.status(201).json(fresh ?? serialize(row!, 0, clinic.avgConsultationMinutes));
 });
 
@@ -174,7 +176,8 @@ router.post("/patients/reorder", async (req, res): Promise<void> => {
     }
   });
 
-  void notifyNearbyPatientsOnChange(clinic.id);
+  // WhatsApp/Twilio queue-change notifications disabled.
+  // void notifyNearbyPatientsOnChange(clinic.id);
   const queue = await buildSerializedQueue(
     clinic.id,
     clinic.avgConsultationMinutes,
@@ -203,15 +206,16 @@ router.post("/patients/next", async (req, res): Promise<void> => {
       .returning();
     completedRow = updated ?? null;
 
-    if (completedRow?.phone) {
-      const canSend = await shouldSendNotification(completedRow.id, "done");
-      if (canSend) {
-        const msg = buildThankYouMessage(clinic, completedRow.name);
-        void sendWhatsAppMessage(completedRow.phone, msg).then((success) => {
-          if (success) void trackNotificationSent(completedRow!.id, "done");
-        }).catch(() => undefined);
-      }
-    }
+    // WhatsApp/Twilio completion notification disabled. Kept commented so it can be restored later.
+    // if (completedRow?.phone) {
+    //   const canSend = await shouldSendNotification(completedRow.id, "done");
+    //   if (canSend) {
+    //     const msg = buildThankYouMessage(clinic, completedRow.name);
+    //     void sendWhatsAppMessage(completedRow.phone, msg).then((success) => {
+    //       if (success) void trackNotificationSent(completedRow!.id, "done");
+    //     }).catch(() => undefined);
+    //   }
+    // }
   }
   const remaining = ordered
     .filter((p) => p.id !== inProgress?.id && p.status === "waiting")
@@ -226,21 +230,22 @@ router.post("/patients/next", async (req, res): Promise<void> => {
       .returning();
     currentRow = updated ?? null;
   }
-  // notify nearby patients after advancing
-  void notifyNearbyPatientsOnChange(clinic.id);
-
-  // notify the new current patient directly (your turn)
-  if (currentRow?.phone) {
-    const queueForCurrent = await buildSerializedQueue(clinic.id, clinic.avgConsultationMinutes);
-    const pCurrent = queueForCurrent.find(p => p.id === currentRow!.id);
-    if (pCurrent) {
-      const msg = buildNotificationMessage(clinic, pCurrent);
-      void sendWhatsAppMessage(currentRow.phone, msg)
-        .then((success) => {
-          if (success) void trackNotificationSent(currentRow!.id, "your_turn");
-        }).catch(() => undefined);
-    }
-  }
+  // WhatsApp/Twilio queue-change notifications disabled. Kept commented so they can be restored later.
+  // // notify nearby patients after advancing
+  // void notifyNearbyPatientsOnChange(clinic.id);
+  //
+  // // notify the new current patient directly (your turn)
+  // if (currentRow?.phone) {
+  //   const queueForCurrent = await buildSerializedQueue(clinic.id, clinic.avgConsultationMinutes);
+  //   const pCurrent = queueForCurrent.find(p => p.id === currentRow!.id);
+  //   if (pCurrent) {
+  //     const msg = buildNotificationMessage(clinic, pCurrent);
+  //     void sendWhatsAppMessage(currentRow.phone, msg)
+  //       .then((success) => {
+  //         if (success) void trackNotificationSent(currentRow!.id, "your_turn");
+  //       }).catch(() => undefined);
+  //   }
+  // }
 
   res.json({
     completed: completedRow
@@ -307,8 +312,8 @@ router.post("/patients/:id/skip", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Patient not found" });
     return;
   }
-  // notify nearby patients after skip
-  void notifyNearbyPatientsOnChange(clinic.id);
+  // WhatsApp/Twilio queue-change notifications disabled.
+  // void notifyNearbyPatientsOnChange(clinic.id);
 
   res.json(serialize(updated, -1, clinic.avgConsultationMinutes));
 });
